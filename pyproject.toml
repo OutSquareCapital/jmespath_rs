@@ -14,3 +14,9 @@ dynamic = ["version"]
 [tool.maturin]
 features = ["pyo3/extension-module"]
 profile = "release"
+
+[dependency-groups]
+dev = [
+    "jmespath>=1.0.1",
+    "polars>=1.34.0",
+]

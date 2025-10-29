@@ -1,49 +1,52 @@
-use jmespath::{Expression, Variable};
-use pyo3::exceptions::PyValueError;
+use jmespath::Variable;
 use pyo3::prelude::*;
-use serde_json::Value;
+use std::rc::Rc;
+mod conversions;
+mod querybuilder;
+use crate::conversions::{new_error, py_to_variable, variable_to_py};
+use crate::querybuilder as qb;
 
-#[pyclass(frozen, unsendable)]
-struct Compiled {
-    expr: Expression<'static>,
-}
-
-fn new_error(msg: &str) -> PyErr {
-    PyValueError::new_err(msg.to_string())
+#[pyclass(unsendable, name = "DataJson")]
+struct DataJson {
+    data: Rc<Variable>,
 }
 
 #[pymethods]
-impl Compiled {
-    fn search(&self, py: Python<'_>, data: Py<PyAny>) -> PyResult<Py<PyAny>> {
-        let any = data.bind(py);
-        let val: Value = pythonize::depythonize(&any).map_err(|e| new_error(&e.to_string()))?;
-        let json = serde_json::to_string(&val).map_err(|e| new_error(&e.to_string()))?;
-        let var = Variable::from_json(&json).map_err(|e| new_error(&e.to_string()))?;
+impl DataJson {
+    #[new]
+    fn new(py: Python<'_>, data: Py<PyAny>) -> PyResult<Self> {
+        let var = py_to_variable(py, data.bind(py))?;
+        Ok(DataJson { data: Rc::new(var) })
+    }
 
-        let out = self
-            .expr
-            .search(var)
+    #[pyo3(signature = (query))]
+    fn query(&self, query: PyRef<'_, qb::QueryBuilder>) -> PyResult<DataJson> {
+        let compiled = jmespath::compile(&query.expr).map_err(|e| new_error(&e.to_string()))?;
+        let new_data: Rc<Variable> = compiled
+            .search(self.data.as_ref())
             .map_err(|e| new_error(&e.to_string()))?;
-
-        let out_val: Value = serde_json::to_value(&out).map_err(|e| new_error(&e.to_string()))?;
-        let obj = pythonize::pythonize(py, &out_val).map_err(|e| new_error(&e.to_string()))?;
-        Ok(obj.into())
+        Ok(DataJson { data: new_data })
     }
 
-    fn as_str(&self) -> &str {
-        self.expr.as_str()
+    fn collect(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        variable_to_py(py, self.data.as_ref())
+    }
+
+    fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
+        let py_val = self.collect(py)?;
+        let py_val_bound = py_val.bind(py);
+        let repr = py_val_bound.repr()?.to_string();
+        Ok(format!("DataJson({})", repr))
     }
 }
-
-#[pyfunction]
-fn compile_expr(query: &str) -> PyResult<Compiled> {
-    let expr = jmespath::compile(query).map_err(|e| new_error(&e.to_string()))?;
-    Ok(Compiled { expr })
-}
-
 #[pymodule]
 fn jmespath_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_class::<Compiled>()?;
-    m.add_function(wrap_pyfunction!(compile_expr, m)?)?;
+    m.add_class::<DataJson>()?;
+    m.add_class::<qb::QueryBuilder>()?;
+    m.add_function(wrap_pyfunction!(qb::field, m)?)?;
+    m.add_function(wrap_pyfunction!(qb::select_list, m)?)?;
+    m.add_function(wrap_pyfunction!(qb::select_dict, m)?)?;
+    m.add_function(wrap_pyfunction!(qb::lit, m)?)?;
+
     Ok(())
 }
