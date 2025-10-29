@@ -87,7 +87,7 @@ def format_results(results: list[BenchmarkResult]) -> pl.DataFrame:
     )
 
 
-def _qd_func(df: qd.DataJson, qry: qd.QueryBuilder) -> Any:
+def _qd_func(df: qd.DataJson, qry: qd.QueryBuilder) -> qd.DataJson:
     return df.query(qry)
 
 
@@ -103,7 +103,7 @@ def add_case(
     df = qd.DataJson(data)
     qd_query_obj = case.qd_query
     jp_search_func = jp_compiled.search
-    assert jp_search_func(data) == _qd_func(df, qd_query_obj).to_python()
+    assert jp_search_func(data) == _qd_func(df, qd_query_obj).collect()
 
     start = time.perf_counter()
     timings_qd = []

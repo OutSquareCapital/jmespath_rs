@@ -13,12 +13,12 @@ fn clean_rhs_expr_for_by_func(expr_str: &str) -> &str {
 }
 
 fn obj_to_jmespath_literal_string(py: Python<'_>, ob: &Bound<'_, PyAny>) -> PyResult<String> {
-    let json = py.import_bound("json")?;
     let default = py.import_bound("builtins")?.getattr("str")?;
     let kwargs = PyDict::new_bound(py);
     kwargs.set_item("default", default)?;
 
-    let s = json
+    let s = py
+        .import_bound("json")?
         .call_method("dumps", (ob,), Some(&kwargs))?
         .extract::<String>()?;
     Ok(format!("`{}`", s))
