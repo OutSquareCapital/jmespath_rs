@@ -9,7 +9,7 @@ pub struct FilteredExpr {
 
 #[pymethods]
 impl FilteredExpr {
-    pub fn map(&self, then: &Expr) -> Expr {
+    pub fn then(&self, then: &Expr) -> Expr {
         Expr {
             node: Node::FilterProjection {
                 base: self.base.clone().into(),
