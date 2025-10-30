@@ -1,6 +1,7 @@
 from __future__ import annotations
-import statistics
+
 import random
+import statistics
 import string
 import time
 from collections.abc import Callable
@@ -8,9 +9,8 @@ from dataclasses import dataclass
 from typing import Any, TypedDict
 
 import jmespath
-import polars as pl
-
 import jmespath_rs as qd
+import polars as pl
 
 type JsonData = dict[str, Any]
 type QueryFunc = Callable[[JsonData], Any]
@@ -126,13 +126,13 @@ def add_case(
     jp_search_func = jp_compiled.search
     assert jp_search_func(data) == _qd_func(df, qd_query_obj)
 
-    timings_qd = []
+    timings_qd: list[float] = []
     for i in range(runs):
         start = time.perf_counter()
         _qd_func(df, qd_query_obj)
         end = time.perf_counter()
         timings_qd.append(end - start)
-    timings_jp = []
+    timings_jp: list[float] = []
     for i in range(runs):
         start = time.perf_counter()
         jp_search_func(data)
