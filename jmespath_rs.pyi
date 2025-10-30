@@ -44,8 +44,14 @@ class DataJson:
         Initializes the context with Python data.
         """
         ...
+    def query(self, query: Expr) -> Self:
+        """
+        Executes a Expr expression against the internal data.
+        Returns the result as a Python object.
+        """
+        ...
 
-    def search(self, query: Expr) -> Any:
+    def collect(self, query: Expr) -> Any:
         """
         Executes a Expr expression against the internal data.
         Returns the result as a Python object.
@@ -115,10 +121,9 @@ class Expr:
         """
         ...
 
-    def filter(self, cond: Expr, then: IntoExpr) -> Self:
+    def filter(self, cond: Expr) -> FilteredExpr:
         """
-        Filters a list (e.g., [?age > `18`].name).
-        `then` accepts Expr, string (for field), or literal values.
+        Filters a list (e.g., [?age > `18`]).
         """
         ...
 
@@ -214,5 +219,15 @@ class Expr:
         """
         Finds the maximum element using a key expression.
         (JMESPath syntax: max_by(@, &key))
+        """
+        ...
+
+class FilteredExpr:
+    """
+    A JMESPath expression representing a filtered projection.
+    """
+    def then(self, then: Expr) -> Expr:
+        """
+        Completes the filtered expression by specifying the 'then' part.
         """
         ...

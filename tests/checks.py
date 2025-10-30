@@ -19,7 +19,7 @@ class Case:
     def check(self) -> None:
         q = self.build()
         expr = self.jmes_query
-        got = qd.DataJson(self.data).search(q)
+        got = qd.DataJson(self.data).collect(q)
         want = jmespath.search(expr, self.data)
         assert got == want, f"{self.name}: \n{got=!r} != \n{want=!r}  \nexpr={expr!r}"
         print(f"✔ {self.name}, \nexpr: \n  {expr}, \nresult: \n  {got!r}")
@@ -80,9 +80,10 @@ CASES: list[Case] = [
     Case(
         name="filter-then-name",
         build=lambda: (
-            qd.field("users").filter(
-                qd.field("age").ge(18),
-                then=qd.field("name"),
+            qd.field("users")
+            .filter(qd.field("age").ge(18))
+            .then(
+                qd.field("name"),
             )
         ),
         jmes_query="users[?age >= `18`].name",

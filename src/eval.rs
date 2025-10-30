@@ -11,7 +11,7 @@ fn none<'py>(py: Python<'py>) -> Bound<'py, PyAny> {
 pub fn eval_any<'py>(
     py: Python<'py>,
     node: &Node,
-    v: Bound<'py, PyAny>,
+    v: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyAny>> {
     match node {
         Node::This => Ok(v.clone()),
@@ -55,13 +55,13 @@ pub fn eval_any<'py>(
 
         Node::Pipe(lhs, rhs) | Node::SubExpr(lhs, rhs) => {
             let mid = eval_any(py, lhs, v)?;
-            eval_any(py, rhs, mid)
+            eval_any(py, rhs, &mid)
         }
 
         Node::MultiList(items) => {
             let out = PyList::empty_bound(py);
             for it in items {
-                out.append(eval_any(py, it, v.clone())?)?;
+                out.append(eval_any(py, it, v)?)?;
             }
             Ok(out.into_any())
         }
@@ -69,11 +69,10 @@ pub fn eval_any<'py>(
         Node::MultiDict(items) => {
             let out = PyDict::new_bound(py);
             for (k, expr) in items {
-                out.set_item(k, eval_any(py, expr, v.clone())?)?;
+                out.set_item(k, eval_any(py, expr, v)?)?;
             }
             Ok(out.into_any())
         }
-
         Node::ProjectArray { base, rhs } => {
             let basev = eval_any(py, base, v)?;
             if !is_list(&basev)? {
@@ -83,7 +82,7 @@ pub fn eval_any<'py>(
             let out = PyList::empty_bound(py);
             for i in 0..seq.len()? {
                 let el = seq.get_item(i)?;
-                let mapped = eval_any(py, rhs, el)?;
+                let mapped = eval_any(py, rhs, &el)?;
                 if !mapped.is_none() {
                     out.append(mapped)?;
                 }
@@ -97,7 +96,7 @@ pub fn eval_any<'py>(
                 let d = basev.downcast::<PyDict>()?;
                 let out = PyList::empty_bound(py);
                 for (_, val) in d.iter() {
-                    let mapped = eval_any(py, rhs, val)?;
+                    let mapped = eval_any(py, rhs, &val)?;
                     if !mapped.is_none() {
                         out.append(mapped)?;
                     }
@@ -137,16 +136,16 @@ pub fn eval_any<'py>(
             let out = PyList::empty_bound(py);
             for i in 0..seq.len()? {
                 let el = seq.get_item(i)?;
-                let c = eval_any(py, cond, el.clone())?;
+                let c = eval_any(py, cond, &el)?;
                 if not_empty(&c)? {
-                    out.append(eval_any(py, then, el)?)?;
+                    out.append(eval_any(py, then, &el)?)?;
                 }
             }
             Ok(out.into_any())
         }
 
         Node::And(a, b) => {
-            let av = eval_any(py, a, v.clone())?;
+            let av = eval_any(py, a, &v)?;
             if not_empty(&av)? {
                 eval_any(py, b, v)
             } else {
@@ -155,7 +154,7 @@ pub fn eval_any<'py>(
         }
 
         Node::Or(a, b) => {
-            let av = eval_any(py, a, v.clone())?;
+            let av = eval_any(py, a, &v)?;
             if not_empty(&av)? {
                 Ok(av)
             } else {
@@ -284,7 +283,7 @@ pub fn eval_any<'py>(
             let out = PyList::empty_bound(py);
             for i in 0..seq.len()? {
                 let el = seq.get_item(i)?;
-                out.append(eval_any(py, key, el)?)?;
+                out.append(eval_any(py, key, &el)?)?;
             }
             Ok(out.into_any())
         }
@@ -297,12 +296,12 @@ pub fn eval_any<'py>(
 
 fn cmp_bool<'py>(
     py: Python<'py>,
-    v: Bound<'py, PyAny>,
+    v: &Bound<'py, PyAny>,
     a: &Node,
     b: &Node,
     op: CompareOp,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let va = eval_any(py, a, v.clone())?;
+    let va = eval_any(py, a, v)?;
     let vb = eval_any(py, b, v)?;
     let res = match op {
         CompareOp::Eq => eq_semantics(&va, &vb)?,
@@ -326,7 +325,7 @@ enum SortKind {
 
 fn sort_like<'py>(
     py: Python<'py>,
-    v: Bound<'py, PyAny>,
+    v: &Bound<'py, PyAny>,
     base: &Node,
     key: &Node,
     kind: SortKind,
@@ -352,7 +351,7 @@ fn sort_like<'py>(
     let mut pairs: Vec<(u8, SortKey, Option<i64>, Option<String>, PyObject)> =
         Vec::with_capacity(lst.len());
     for el in lst.iter() {
-        let kv = eval_any(py, key, el.clone())?;
+        let kv = eval_any(py, key, &el)?;
         let f = kv.extract::<f64>().ok();
         let i = kv.extract::<i64>().ok();
         let s = kv.extract::<String>().ok();

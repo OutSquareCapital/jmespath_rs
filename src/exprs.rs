@@ -1,7 +1,24 @@
 use crate::nodes::{into_node, Node, PyObjectWrapper};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
+#[pyclass(module = "jmespath_rs", name = "FilteredExpr")]
+pub struct FilteredExpr {
+    base: Node,
+    cond: Node,
+}
 
+#[pymethods]
+impl FilteredExpr {
+    pub fn map(&self, then: &Expr) -> Expr {
+        Expr {
+            node: Node::FilterProjection {
+                base: self.base.clone().into(),
+                then: then.node.clone().into(),
+                cond: self.cond.clone().into(),
+            },
+        }
+    }
+}
 #[pyclass(module = "jmespath_rs", name = "Expr")]
 #[derive(Clone)]
 pub struct Expr {
@@ -67,16 +84,12 @@ impl Expr {
         })
     }
 
-    pub fn filter(&self, py: Python<'_>, cond: &Expr, then: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            node: Node::FilterProjection {
-                base: self.node.clone().into(),
-                then: into_node(py, then)?.into(),
-                cond: cond.node.clone().into(),
-            },
-        })
+    pub fn filter(&self, cond: &Expr) -> FilteredExpr {
+        FilteredExpr {
+            base: self.node.clone(),
+            cond: cond.node.clone(),
+        }
     }
-
     pub fn flatten(&self) -> Self {
         Self {
             node: Node::Flatten(self.node.clone().into()),

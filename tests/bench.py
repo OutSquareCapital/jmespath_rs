@@ -58,13 +58,14 @@ BENCHMARKS: list[BenchmarkCase] = [
     ),
     BenchmarkCase(
         name="Filtre complexe (active & >30 & tag1)",
-        qd_query=qd.field("users").filter(
+        qd_query=qd.field("users")
+        .filter(
             qd.field("age")
             .gt(30)
             .and_(qd.field("active").eq(True))
             .and_(qd.field("tags").eq("tag1").or_(qd.field("tags").eq("tag2"))),
-            then=qd.lit("name"),
-        ),
+        )
+        .then(qd.lit("name")),
         jmespath_query="users[?age > `30` && active == `true` && (tags == `tag1` || tags == `tag2`)].name",
     ),
     BenchmarkCase(
@@ -118,7 +119,7 @@ def format_results(results: list[BenchmarkResult]) -> pl.DataFrame:
 
 
 def _qd_func(df: qd.DataJson, qry: qd.Expr):
-    return df.search(qry)
+    return df.collect(qry)
 
 
 def _jsem_func(data: dict[str, Any], compiled: Any) -> Any:
