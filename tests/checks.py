@@ -12,8 +12,7 @@ import jmespath_rs as qd
 @dataclass(slots=True, frozen=True)
 class Case:
     name: str
-    # MODIFIÉ: qd.Query -> qd.QueryBuilder
-    build: Callable[[], qd.QueryBuilder]
+    build: Callable[[], qd.Expr]
     jmes_query: str
     data: dict[str, Any]
 
@@ -83,7 +82,7 @@ CASES: list[Case] = [
         build=lambda: (
             qd.field("users").filter(
                 qd.field("age").ge(18),
-                then="name",
+                then=qd.field("name"),
             )
         ),
         jmes_query="users[?age >= `18`].name",
@@ -121,7 +120,7 @@ CASES: list[Case] = [
     Case(
         name="map_with-length",
         build=lambda: (
-            qd.field("users").project("name").map_with(qd.QueryBuilder().length())
+            qd.field("users").project("name").map_with(qd.identity().length())
         ),
         jmes_query="map(&length(@), users[].name)",
         data=DATA_USER,
@@ -134,14 +133,12 @@ CASES: list[Case] = [
     ),
     Case(
         name="min_by-age",
-        # MODIFIÉ: On passe l'expression "age"
         build=lambda: qd.field("users").min_by(qd.field("age")),
         jmes_query="min_by(users, &age)",
         data=DATA_USER,
     ),
     Case(
         name="max_by-age",
-        # MODIFIÉ: On passe l'expression "age"
         build=lambda: qd.field("users").max_by(qd.field("age")),
         jmes_query="max_by(users, &age)",
         data=DATA_USER,

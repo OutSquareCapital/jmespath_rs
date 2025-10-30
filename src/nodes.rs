@@ -1,5 +1,4 @@
-use crate::querybuilder::QueryBuilder;
-use pyo3::types::*;
+use crate::exprs::Expr;
 use pyo3::{prelude::*, PyObject};
 #[derive(Debug)]
 pub struct PyObjectWrapper(pub PyObject);
@@ -69,33 +68,12 @@ pub enum Node {
         key: Box<Node>,
     },
 }
-
-fn is_instance_of<'py, T: pyo3::PyTypeInfo>(obj: &Bound<'py, PyAny>) -> bool {
-    obj.is_instance_of::<T>()
-}
-
 pub fn into_node(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<Node> {
-    if let Some(n) = try_as_builder(obj) {
-        return Ok(n);
+    if let Ok(expr) = obj.extract::<PyRef<Expr>>() {
+        return Ok(expr.node.clone());
     }
-    if is_instance_of::<PyString>(obj) {
-        let s: String = obj.extract()?;
+    if let Ok(s) = obj.extract::<String>() {
         return Ok(Node::Field(s));
     }
-    if is_instance_of::<PyNone>(obj)
-        || is_instance_of::<PyInt>(obj)
-        || is_instance_of::<PyFloat>(obj)
-        || is_instance_of::<PyBool>(obj)
-    {
-        return Ok(Node::Literal(PyObjectWrapper(obj.to_object(py))));
-    }
     Ok(Node::Literal(PyObjectWrapper(obj.to_object(py))))
-}
-
-fn try_as_builder(obj: &Bound<'_, PyAny>) -> Option<Node> {
-    if let Ok(qb) = obj.extract::<PyRef<QueryBuilder>>() {
-        Some(qb.node.clone())
-    } else {
-        None
-    }
 }

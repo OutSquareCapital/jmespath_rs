@@ -1,5 +1,5 @@
 use crate::eval;
-use crate::querybuilder as qb;
+use crate::exprs;
 use pyo3::prelude::*;
 #[pyclass(module = "jmespath_rs", name = "DataJson")]
 pub struct DataJson {
@@ -12,7 +12,7 @@ impl DataJson {
         Self { data: obj }
     }
 
-    pub fn search(&self, q: &qb::QueryBuilder) -> PyResult<PyObject> {
+    pub fn search(&self, q: &exprs::Expr) -> PyResult<PyObject> {
         Python::with_gil(|py| {
             let root = self.data.bind(py);
             Ok(eval::eval_any(py, &q.node, root.clone())?.unbind().into())

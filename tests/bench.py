@@ -26,7 +26,7 @@ class BenchmarkResult(TypedDict):
 @dataclass(slots=True, frozen=True)
 class BenchmarkCase:
     name: str
-    qd_query: qd.QueryBuilder
+    qd_query: qd.Expr
     jmespath_query: str
 
 
@@ -63,7 +63,7 @@ BENCHMARKS: list[BenchmarkCase] = [
             .gt(30)
             .and_(qd.field("active").eq(True))
             .and_(qd.field("tags").eq("tag1").or_(qd.field("tags").eq("tag2"))),
-            then="name",
+            then=qd.lit("name"),
         ),
         jmespath_query="users[?age > `30` && active == `true` && (tags == `tag1` || tags == `tag2`)].name",
     ),
@@ -79,7 +79,7 @@ BENCHMARKS: list[BenchmarkCase] = [
     ),
     BenchmarkCase(
         name="Accès champ (first user name)",
-        qd_query=qd.field("users").index(0).field("name"),
+        qd_query=qd.field("users").index(0).name,
         jmespath_query="users[0].name",
     ),
 ]
@@ -105,14 +105,19 @@ def format_results(results: list[BenchmarkResult]) -> pl.DataFrame:
         .agg(
             pl.col("jmespth").mul(1000).alias("jmespth_ms"),
             pl.col("qrydict").mul(1000).alias("qrydict_ms"),
-            pl.col("speedup_pct").mean().alias("avg_speedup_pct"),
+            "speedup_pct",
+            pl.col("speedup_pct")
+            .mean()
+            .truediv(10)
+            .cast(pl.UInt32)
+            .alias("avg_speedup_factor"),
         )
-        .sort("avg_speedup_pct", descending=True)
+        .sort("avg_speedup_factor", descending=True)
         .collect()
     )
 
 
-def _qd_func(df: qd.DataJson, qry: qd.QueryBuilder):
+def _qd_func(df: qd.DataJson, qry: qd.Expr):
     return df.search(qry)
 
 

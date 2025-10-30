@@ -244,9 +244,17 @@ pub fn eval_any<'py>(
                 Ok(s)
             }
         }
-
         Node::ToNumber(x) => {
             let xv = eval_any(py, x, v)?;
+            if let Ok(s) = xv.extract::<&str>() {
+                if let Ok(i) = s.parse::<i64>() {
+                    return Ok(i.to_object(py).into_bound(py).into_any());
+                }
+                if let Ok(f) = s.parse::<f64>() {
+                    return Ok(f.to_object(py).into_bound(py).into_any());
+                }
+                return Ok(none(py));
+            }
             if xv.is_instance_of::<PyBool>()
                 || xv.is_none()
                 || xv.is_instance_of::<PyDict>()
@@ -257,6 +265,7 @@ pub fn eval_any<'py>(
             if is_number(&xv)? {
                 return Ok(xv);
             }
+
             if let Ok(i) = xv.extract::<i64>() {
                 return Ok(i.to_object(py).into_bound(py).into_any());
             }
