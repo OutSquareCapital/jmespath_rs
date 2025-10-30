@@ -1,234 +1,242 @@
-use crate::parsing as ps;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList};
 
-fn py_obj_to_selection_string(py: Python<'_>, obj: Py<PyAny>) -> PyResult<String> {
-    let expr_str = ps::PyArgConverter::new(py, obj)
-        .to_string_expr()?
-        .into_string();
-    Ok(if expr_str.is_empty() {
-        ps::KWORD_CURRENT.to_string()
-    } else {
-        expr_str
-    })
-}
-#[pyclass(frozen, unsendable, name = "QueryBuilder")]
+use crate::nodes::{into_node, Node};
+#[pyclass(module = "jmespath_rs", name = "QueryBuilder")]
 #[derive(Clone)]
 pub struct QueryBuilder {
-    pub expr: String,
+    pub node: Node,
 }
 
-impl QueryBuilder {
-    fn new_expr(&self, expr: String) -> Self {
-        Self { expr }
-    }
-
-    fn binary_op(&self, py: Python<'_>, other: Py<PyAny>, op: &str) -> PyResult<Self> {
-        ps::PyArgConverter::new(py, other)
-            .to_string_expr()?
-            .into_formatter()
-            .as_binary_op(op, &self.expr)
-            .into_py_query()
-    }
-    fn by_func(&self, py: Python<'_>, name: &str, rhs: Py<PyAny>) -> PyResult<Self> {
-        ps::PyArgConverter::new(py, rhs)
-            .to_string_expr()?
-            .strip_current()
-            .strip_dot()
-            .into_formatter()
-            .as_by_func(name, &self.expr)
-            .into_py_query()
-    }
-}
 #[pymethods]
 impl QueryBuilder {
     #[new]
-    fn new() -> Self {
+    pub fn new() -> Self {
+        Self { node: Node::This }
+    }
+    fn __getattr__(&self, name: String) -> Self {
+        self.field(name)
+    }
+    pub fn field(&self, name: String) -> Self {
         Self {
-            expr: ps::KWORD_CURRENT.to_string(),
+            node: Node::SubExpr(self.node.clone().into(), Node::Field(name).into()),
+        }
+    }
+    pub fn index(&self, i: isize) -> Self {
+        Self {
+            node: Node::SubExpr(self.node.clone().into(), Node::Index(i).into()),
+        }
+    }
+    #[pyo3(signature = (start=None, end=None, step=None))]
+    pub fn slice(&self, start: Option<isize>, end: Option<isize>, step: Option<isize>) -> Self {
+        Self {
+            node: Node::SubExpr(
+                self.node.clone().into(),
+                Node::Slice(start, end, step).into(),
+            ),
+        }
+    }
+    pub fn pipe(&self, rhs: QueryBuilder) -> Self {
+        Self {
+            node: Node::Pipe(self.node.clone().into(), rhs.node.into()),
+        }
+    }
+    pub fn project<'py>(&self, py: Python<'py>, rhs: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let rhs_node = into_node(py, rhs)?;
+        Ok(Self {
+            node: Node::ProjectArray {
+                base: self.node.clone().into(),
+                rhs: rhs_node.into(),
+            },
+        })
+    }
+
+    pub fn vproject<'py>(&self, py: Python<'py>, rhs: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let rhs_node = into_node(py, rhs)?;
+        Ok(Self {
+            node: Node::ProjectObject {
+                base: self.node.clone().into(),
+                rhs: rhs_node.into(),
+            },
+        })
+    }
+
+    pub fn filter<'py>(
+        &self,
+        py: Python<'py>,
+        cond: QueryBuilder,
+        then: &Bound<'py, PyAny>,
+    ) -> PyResult<Self> {
+        let then_node = into_node(py, then)?;
+        Ok(Self {
+            node: Node::FilterProjection {
+                base: self.node.clone().into(),
+                then: then_node.into(),
+                cond: cond.node.into(),
+            },
+        })
+    }
+
+    pub fn flatten(&self) -> Self {
+        Self {
+            node: Node::Flatten(self.node.clone().into()),
         }
     }
 
-    #[pyo3(signature = (start = None, end = None, step = None))]
-    fn slice(&self, start: Option<i64>, end: Option<i64>, step: Option<i64>) -> Self {
-        let start_s = start.map_or("".to_string(), |s| s.to_string());
-        let end_s = end.map_or("".to_string(), |e| e.to_string());
-
-        let slice_s = if let Some(step_val) = step {
-            format!("{}:{}:{}", start_s, end_s, step_val)
-        } else {
-            format!("{}:{}", start_s, end_s)
-        };
-        self.new_expr(format!("{}[{}]", self.expr, slice_s))
+    pub fn eq<'py>(&self, py: Python<'py>, rhs: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let r = into_node(py, rhs)?;
+        Ok(Self {
+            node: Node::CmpEq(self.node.clone().into(), r.into()),
+        })
+    }
+    pub fn ne<'py>(&self, py: Python<'py>, rhs: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let r = into_node(py, rhs)?;
+        Ok(Self {
+            node: Node::CmpNe(self.node.clone().into(), r.into()),
+        })
+    }
+    pub fn lt<'py>(&self, py: Python<'py>, rhs: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let r = into_node(py, rhs)?;
+        Ok(Self {
+            node: Node::CmpLt(self.node.clone().into(), r.into()),
+        })
+    }
+    pub fn le<'py>(&self, py: Python<'py>, rhs: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let r = into_node(py, rhs)?;
+        Ok(Self {
+            node: Node::CmpLe(self.node.clone().into(), r.into()),
+        })
+    }
+    pub fn gt<'py>(&self, py: Python<'py>, rhs: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let r = into_node(py, rhs)?;
+        Ok(Self {
+            node: Node::CmpGt(self.node.clone().into(), r.into()),
+        })
+    }
+    pub fn ge<'py>(&self, py: Python<'py>, rhs: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let r = into_node(py, rhs)?;
+        Ok(Self {
+            node: Node::CmpGe(self.node.clone().into(), r.into()),
+        })
     }
 
-    #[pyo3(name = "field")]
-    fn field_(&self, name: String) -> Self {
-        self.new_expr(format!("{}{}{}", self.expr, ps::KWORD_DOT, name))
+    pub fn and_<'py>(&self, py: Python<'py>, rhs: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let r = into_node(py, rhs)?;
+        Ok(Self {
+            node: Node::And(self.node.clone().into(), r.into()),
+        })
     }
-    fn __getattr__(&self, name: String) -> Self {
-        self.field_(name)
+    pub fn or_<'py>(&self, py: Python<'py>, rhs: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let r = into_node(py, rhs)?;
+        Ok(Self {
+            node: Node::Or(self.node.clone().into(), r.into()),
+        })
     }
-    fn index(&self, i: i64) -> Self {
-        self.new_expr(format!("{}[{}]", self.expr, i))
-    }
-    fn project(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
-        ps::PyArgConverter::new(py, rhs)
-            .to_string_expr()?
-            .ensure_leading_dot()
-            .into_formatter()
-            .as_project(&self.expr, ps::KWORD_ARRAY_PROJECT)
-            .into_py_query()
-    }
-    fn vproject(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
-        ps::PyArgConverter::new(py, rhs)
-            .to_string_expr()?
-            .ensure_leading_dot()
-            .into_formatter()
-            .as_project(&self.expr, ps::KWORD_OBJECT_PROJECT)
-            .into_py_query()
-    }
-    fn flatten(&self) -> Self {
-        self.new_expr(format!("{}{}", self.expr, ps::KWORD_FLATTEN))
+    pub fn not_(&self) -> Self {
+        Self {
+            node: Node::Not(self.node.clone().into()),
+        }
     }
 
-    fn filter(&self, py: Python<'_>, cond: Py<PyAny>, then: Py<PyAny>) -> PyResult<Self> {
-        let cond_expr = ps::PyArgConverter::new(py, cond)
-            .to_string_expr()?
-            .strip_current();
-
-        ps::PyArgConverter::new(py, then)
-            .to_string_expr()?
-            .ensure_leading_dot()
-            .into_formatter()
-            .as_filter(&self.expr, &cond_expr)
-            .into_py_query()
+    pub fn length(&self) -> Self {
+        Self {
+            node: Node::Length(self.node.clone().into()),
+        }
     }
-    fn eq(&self, py: Python<'_>, other: Py<PyAny>) -> PyResult<Self> {
-        self.binary_op(py, other, "==")
+    pub fn sort(&self) -> Self {
+        Self {
+            node: Node::Sort(self.node.clone().into()),
+        }
     }
-    fn ne(&self, py: Python<'_>, other: Py<PyAny>) -> PyResult<Self> {
-        self.binary_op(py, other, "!=")
+    pub fn keys(&self) -> Self {
+        Self {
+            node: Node::Keys(self.node.clone().into()),
+        }
     }
-    fn gt(&self, py: Python<'_>, other: Py<PyAny>) -> PyResult<Self> {
-        self.binary_op(py, other, ">")
+    pub fn values(&self) -> Self {
+        Self {
+            node: Node::Values(self.node.clone().into()),
+        }
     }
-    fn ge(&self, py: Python<'_>, other: Py<PyAny>) -> PyResult<Self> {
-        self.binary_op(py, other, ">=")
+    pub fn to_array(&self) -> Self {
+        Self {
+            node: Node::ToArray(self.node.clone().into()),
+        }
     }
-    fn lt(&self, py: Python<'_>, other: Py<PyAny>) -> PyResult<Self> {
-        self.binary_op(py, other, "<")
+    pub fn to_string(&self) -> Self {
+        Self {
+            node: Node::ToString(self.node.clone().into()),
+        }
     }
-    fn le(&self, py: Python<'_>, other: Py<PyAny>) -> PyResult<Self> {
-        self.binary_op(py, other, "<=")
-    }
-
-    #[pyo3(name = "and_")]
-    fn and_(&self, py: Python<'_>, other: Py<PyAny>) -> PyResult<Self> {
-        self.binary_op(py, other, "&&")
-    }
-    #[pyo3(name = "or_")]
-    fn or_(&self, py: Python<'_>, other: Py<PyAny>) -> PyResult<Self> {
-        self.binary_op(py, other, "||")
+    pub fn to_number(&self) -> Self {
+        Self {
+            node: Node::ToNumber(self.node.clone().into()),
+        }
     }
 
-    #[pyo3(name = "not_")]
-    fn not_(&self) -> Self {
-        self.new_expr(format!("!({})", self.expr))
+    pub fn map_with(&self, build: QueryBuilder) -> Self {
+        Self {
+            node: Node::MapApply {
+                base: self.node.clone().into(),
+                key: build.node.into(),
+            },
+        }
     }
-    fn pipe(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
-        ps::PyArgConverter::new(py, rhs)
-            .to_string_expr()?
-            .into_formatter()
-            .as_pipe(&self.expr)
-            .into_py_query()
+    pub fn sort_by(&self, key: QueryBuilder) -> Self {
+        Self {
+            node: Node::SortBy {
+                base: self.node.clone().into(),
+                key: key.node.into(),
+            },
+        }
     }
-
-    fn length(&self) -> Self {
-        self.new_expr(format!("length({})", self.expr))
+    pub fn min_by(&self, key: QueryBuilder) -> Self {
+        Self {
+            node: Node::MinBy {
+                base: self.node.clone().into(),
+                key: key.node.into(),
+            },
+        }
     }
-    fn sort(&self) -> Self {
-        self.new_expr(format!("sort({})", self.expr))
-    }
-    fn keys(&self) -> Self {
-        self.new_expr(format!("keys({})", self.expr))
-    }
-    fn values(&self) -> Self {
-        self.new_expr(format!("values({})", self.expr))
-    }
-    fn to_string(&self) -> Self {
-        self.new_expr(format!("to_string({})", self.expr))
-    }
-    fn to_number(&self) -> Self {
-        self.new_expr(format!("to_number({})", self.expr))
-    }
-    fn to_array(&self) -> Self {
-        self.new_expr(format!("to_array({})", self.expr))
-    }
-
-    #[pyo3(name = "map_with")]
-    fn map(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
-        ps::PyArgConverter::new(py, rhs)
-            .to_string_expr()?
-            .strip_current()
-            .strip_dot()
-            .into_formatter()
-            .as_map(&self.expr)
-            .into_py_query()
-    }
-    fn sort_by(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
-        self.by_func(py, "sort_by", rhs)
+    pub fn max_by(&self, key: QueryBuilder) -> Self {
+        Self {
+            node: Node::MaxBy {
+                base: self.node.clone().into(),
+                key: key.node.into(),
+            },
+        }
     }
 
-    fn min_by(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
-        self.by_func(py, "min_by", rhs)
-    }
-
-    fn max_by(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
-        self.by_func(py, "max_by", rhs)
-    }
-
-    fn to_jmespath(&self) -> String {
-        self.expr.clone()
+    pub fn __repr__(&self) -> String {
+        format!("QueryBuilder({:?})", self.node)
     }
 }
 
 #[pyfunction]
 pub fn field(name: String) -> QueryBuilder {
-    QueryBuilder { expr: name }
+    QueryBuilder {
+        node: Node::Field(name).into(),
+    }
 }
-
 #[pyfunction]
-pub fn lit(py: Python<'_>, value: Py<PyAny>) -> PyResult<QueryBuilder> {
-    ps::PyArgConverter::new(py, value)
-        .to_literal_expr()?
-        .into_py_query()
+pub fn select_list(exprs: Vec<QueryBuilder>) -> QueryBuilder {
+    QueryBuilder {
+        node: Node::MultiList(exprs.into_iter().map(|q| q.node).collect()),
+    }
 }
-#[pyfunction(signature = (*args))]
-pub fn select_list(py: Python<'_>, args: &Bound<'_, PyList>) -> PyResult<QueryBuilder> {
-    let inner = args
-        .iter()
-        .map(|item| py_obj_to_selection_string(py, item.to_object(py)))
-        .collect::<PyResult<Vec<String>>>()?
-        .join(", ");
-
-    ps::StringExpr::new(format!("[{}]", inner)).into_py_query()
+#[pyfunction]
+pub fn select_dict(items: Vec<(String, QueryBuilder)>) -> QueryBuilder {
+    QueryBuilder {
+        node: Node::MultiDict(items.into_iter().map(|(k, q)| (k, q.node)).collect()),
+    }
 }
-
-#[pyfunction(signature = (**kwargs))]
-pub fn select_dict(py: Python<'_>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<QueryBuilder> {
-    let inner = kwargs
-        .map_or(Ok(Vec::new()), |items| {
-            items
-                .iter()
-                .map(|(key, value)| {
-                    let key_str = key.extract::<String>()?;
-                    let value_str = py_obj_to_selection_string(py, value.to_object(py))?;
-                    Ok(format!("{}: {}", key_str, value_str))
-                })
-                .collect::<PyResult<Vec<String>>>()
-        })?
-        .join(", ");
-
-    ps::StringExpr::new(format!("{{{}}}", inner)).into_py_query()
+#[pyfunction]
+pub fn lit(value: &Bound<'_, PyAny>) -> PyResult<QueryBuilder> {
+    Python::with_gil(|py| {
+        let n = into_node(py, value)?;
+        Ok(QueryBuilder { node: n })
+    })
+}
+#[pyfunction]
+pub fn identity() -> QueryBuilder {
+    QueryBuilder::new()
 }

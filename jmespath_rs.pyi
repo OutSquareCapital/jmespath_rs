@@ -45,7 +45,7 @@ class DataJson:
         """
         ...
 
-    def query(self, query: QueryBuilder) -> Self:
+    def search(self, query: QueryBuilder) -> Self:
         """
         Executes a QueryBuilder expression against the internal data.
         Updates the internal data with the result and returns self for chaining.
@@ -181,12 +181,5 @@ class QueryBuilder:
         """
         Finds the maximum element using a key expression.
         (JMESPath syntax: max_by(@, &key))
-        """
-        ...
-
-    # --- Finalizer ---
-    def to_jmespath(self) -> str:
-        """
-        Returns the constructed JMESPath query string.
         """
         ...

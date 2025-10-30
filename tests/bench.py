@@ -27,6 +27,7 @@ class BenchmarkResult(TypedDict):
 class BenchmarkCase:
     name: str
     qd_query: qd.QueryBuilder
+    jmespath_query: str
 
 
 def rand_str(k: int) -> str:
@@ -51,7 +52,9 @@ def generate_data(n: int) -> JsonData:
 
 BENCHMARKS: list[BenchmarkCase] = [
     BenchmarkCase(
-        name="Projection simple (names)", qd_query=qd.field("users").project("name")
+        name="Projection simple (names)",
+        qd_query=qd.field("users").project("name"),
+        jmespath_query="users[].name",
     ),
     BenchmarkCase(
         name="Filtre complexe (active & >30 & tag1)",
@@ -62,25 +65,22 @@ BENCHMARKS: list[BenchmarkCase] = [
             .and_(qd.field("tags").eq("tag1").or_(qd.field("tags").eq("tag2"))),
             then="name",
         ),
+        jmespath_query="users[?age > `30` && active == `true` && (tags == `tag1` || tags == `tag2`)].name",
     ),
     BenchmarkCase(
         name="Tri (sort_by age)",
         qd_query=qd.field("users").sort_by(qd.field("age")),
+        jmespath_query="sort_by(users, &age)",
     ),
     BenchmarkCase(
         name="Tranche (slice 10:20)",
         qd_query=qd.field("users").slice(10, 20),
+        jmespath_query="users[10:20]",
     ),
     BenchmarkCase(
         name="Accès champ (first user name)",
         qd_query=qd.field("users").index(0).field("name"),
-    ),
-    BenchmarkCase(
-        name="Multi-sélection dico (id et age)",
-        qd_query=qd.select_dict(
-            id=qd.field("users").index(0).field("id"),
-            age=qd.field("users").index(0).field("age"),
-        ),
+        jmespath_query="users[0].name",
     ),
 ]
 
@@ -102,14 +102,18 @@ def format_results(results: list[BenchmarkResult]) -> pl.DataFrame:
         pl.LazyFrame(results)
         .with_columns(_speedup())
         .group_by("case_name")
-        .agg("speedup_pct", pl.col("speedup_pct").mean().alias("avg_speedup_pct"))
+        .agg(
+            pl.col("jmespth").mul(1000).alias("jmespth_ms"),
+            pl.col("qrydict").mul(1000).alias("qrydict_ms"),
+            pl.col("speedup_pct").mean().alias("avg_speedup_pct"),
+        )
         .sort("avg_speedup_pct", descending=True)
         .collect()
     )
 
 
 def _qd_func(df: qd.DataJson, qry: qd.QueryBuilder):
-    return df.query(qry).collect()
+    return df.search(qry)
 
 
 def _jsem_func(data: dict[str, Any], compiled: Any) -> Any:
@@ -119,7 +123,7 @@ def _jsem_func(data: dict[str, Any], compiled: Any) -> Any:
 def add_case(
     case: BenchmarkCase, size: int, runs: int, data: JsonData
 ) -> BenchmarkResult:
-    jp_expr = case.qd_query.to_jmespath()
+    jp_expr = case.jmespath_query
     jp_compiled = jmespath.compile(jp_expr)
     df = qd.DataJson(data)
     qd_query_obj = case.qd_query
