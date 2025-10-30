@@ -2,6 +2,14 @@ use crate::parsing as ps;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
+fn py_obj_to_selection_string(py: Python<'_>, obj: Py<PyAny>) -> PyResult<String> {
+    let expr_str = ps::from_py_arg(py, obj).to_string_expr()?.into_string();
+    Ok(if expr_str.is_empty() {
+        ps::KWORD_CURRENT.to_string()
+    } else {
+        expr_str
+    })
+}
 #[pyclass(frozen, unsendable, name = "QueryBuilder")]
 #[derive(Clone)]
 pub struct QueryBuilder {
@@ -14,18 +22,24 @@ impl QueryBuilder {
     }
 
     fn binary_op(&self, py: Python<'_>, other: Py<PyAny>, op: &str) -> PyResult<Self> {
-        let right_expr = ps::obj_to_jmespath_string(py, other)?;
-        let s = format!("({}) {} ({})", self.expr, op, right_expr);
-        Ok(self.new_expr(s))
+        ps::from_py_arg(py, other)
+            .to_string_expr()?
+            .into_formatter()
+            .as_binary_op(op, &self.expr)
+            .inner()
+            .into_py_query()
     }
     fn by_func(&self, py: Python<'_>, name: &str, rhs: Py<PyAny>) -> PyResult<Self> {
-        let rhs_expr = ps::obj_to_jmespath_string(py, rhs)?;
-        let rhs_cleaned = ps::clean_rhs_expr_for_by_func(&rhs_expr);
-        let s = format!("{}({}, &{})", name, self.expr, rhs_cleaned);
-        Ok(self.new_expr(s))
+        ps::from_py_arg(py, rhs)
+            .to_string_expr()?
+            .strip_current()
+            .strip_dot()
+            .into_formatter()
+            .as_by_func(name, &self.expr)
+            .inner()
+            .into_py_query()
     }
 }
-
 #[pymethods]
 impl QueryBuilder {
     #[new]
@@ -59,33 +73,38 @@ impl QueryBuilder {
         self.new_expr(format!("{}[{}]", self.expr, i))
     }
     fn project(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
-        let rhs_expr = ps::obj_to_jmespath_string(py, rhs)?;
-        let rhs_dotted = ps::ensure_leading_dot(&rhs_expr);
-        let s = format!("{}{}{}", self.expr, ps::KWORD_ARRAY_PROJECT, rhs_dotted);
-        Ok(self.new_expr(s))
+        ps::from_py_arg(py, rhs)
+            .to_string_expr()?
+            .ensure_leading_dot()
+            .into_formatter()
+            .as_project(&self.expr, ps::KWORD_ARRAY_PROJECT)
+            .inner()
+            .into_py_query()
     }
     fn vproject(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
-        let rhs_expr = ps::obj_to_jmespath_string(py, rhs)?;
-        let rhs_dotted = ps::ensure_leading_dot(&rhs_expr);
-        let s = format!("{}{}{}", self.expr, ps::KWORD_OBJECT_PROJECT, rhs_dotted);
-        Ok(self.new_expr(s))
+        ps::from_py_arg(py, rhs)
+            .to_string_expr()?
+            .ensure_leading_dot()
+            .into_formatter()
+            .as_project(&self.expr, ps::KWORD_OBJECT_PROJECT)
+            .inner()
+            .into_py_query()
     }
     fn flatten(&self) -> Self {
         self.new_expr(format!("{}{}", self.expr, ps::KWORD_FLATTEN))
     }
 
     fn filter(&self, py: Python<'_>, cond: Py<PyAny>, then: Py<PyAny>) -> PyResult<Self> {
-        let cond_expr = ps::obj_to_jmespath_string(py, cond)?;
-        let then_expr = ps::obj_to_jmespath_string(py, then)?;
-        let then_dotted = ps::ensure_leading_dot(&then_expr);
-        let cond_cleaned = cond_expr
-            .strip_prefix(ps::KWORD_CURRENT)
-            .unwrap_or(&cond_expr);
+        let cond_expr = ps::from_py_arg(py, cond).to_string_expr()?.strip_current();
 
-        let s = format!("{}[?{}]{}", self.expr, cond_cleaned, then_dotted);
-        Ok(self.new_expr(s))
+        ps::from_py_arg(py, then)
+            .to_string_expr()?
+            .ensure_leading_dot()
+            .into_formatter()
+            .as_filter(&self.expr, &cond_expr)
+            .inner()
+            .into_py_query()
     }
-
     fn eq(&self, py: Python<'_>, other: Py<PyAny>) -> PyResult<Self> {
         self.binary_op(py, other, "==")
     }
@@ -119,8 +138,12 @@ impl QueryBuilder {
         self.new_expr(format!("!({})", self.expr))
     }
     fn pipe(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
-        let rhs_expr = ps::obj_to_jmespath_string(py, rhs)?;
-        Ok(self.new_expr(format!("{} | {}", self.expr, rhs_expr)))
+        ps::from_py_arg(py, rhs)
+            .to_string_expr()?
+            .into_formatter()
+            .as_pipe(&self.expr)
+            .inner()
+            .into_py_query()
     }
 
     fn length(&self) -> Self {
@@ -147,12 +170,15 @@ impl QueryBuilder {
 
     #[pyo3(name = "map_with")]
     fn map(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
-        let rhs_expr = ps::obj_to_jmespath_string(py, rhs)?;
-        let rhs_cleaned = ps::clean_rhs_expr_for_by_func(&rhs_expr);
-        let s = format!("map(&{}, {})", rhs_cleaned, self.expr);
-        Ok(self.new_expr(s))
+        ps::from_py_arg(py, rhs)
+            .to_string_expr()?
+            .strip_current()
+            .strip_dot()
+            .into_formatter()
+            .as_map(&self.expr)
+            .inner()
+            .into_py_query()
     }
-
     fn sort_by(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
         self.by_func(py, "sort_by", rhs)
     }
@@ -177,46 +203,35 @@ pub fn field(name: String) -> QueryBuilder {
 
 #[pyfunction]
 pub fn lit(py: Python<'_>, value: Py<PyAny>) -> PyResult<QueryBuilder> {
-    let value_bound = value.bind(py);
-    Ok(QueryBuilder {
-        expr: ps::obj_to_jmespath_literal_string(py, value_bound)?,
-    })
+    ps::from_py_arg(py, value)
+        .to_literal_expr()?
+        .into_py_query()
 }
-
 #[pyfunction(signature = (*args))]
 pub fn select_list(py: Python<'_>, args: &Bound<'_, PyList>) -> PyResult<QueryBuilder> {
-    let mut parts: Vec<String> = Vec::new();
-    for item in args {
-        let expr_str = ps::obj_to_jmespath_string(py, item.to_object(py))?;
-        parts.push(if expr_str.is_empty() {
-            ps::KWORD_CURRENT.to_string()
-        } else {
-            expr_str
-        });
-    }
-    let inner = parts.join(", ");
-    Ok(QueryBuilder {
-        expr: format!("[{}]", inner),
-    })
+    let inner = args
+        .iter()
+        .map(|item| py_obj_to_selection_string(py, item.to_object(py)))
+        .collect::<PyResult<Vec<String>>>()?
+        .join(", ");
+
+    ps::StringExpr::new(format!("[{}]", inner)).into_py_query()
 }
 
 #[pyfunction(signature = (**kwargs))]
 pub fn select_dict(py: Python<'_>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<QueryBuilder> {
-    let mut parts: Vec<String> = Vec::new();
-    if let Some(items) = kwargs {
-        for (key, value) in items {
-            let key_str = key.extract::<String>()?;
-            let value_str = ps::obj_to_jmespath_string(py, value.to_object(py))?;
-            let value_clean = if value_str.is_empty() {
-                ps::KWORD_CURRENT.to_string()
-            } else {
-                value_str
-            };
-            parts.push(format!("{}: {}", key_str, value_clean));
-        }
-    }
-    let inner = parts.join(", ");
-    Ok(QueryBuilder {
-        expr: format!("{{{}}}", inner),
-    })
+    let inner = kwargs
+        .map_or(Ok(Vec::new()), |items| {
+            items
+                .iter()
+                .map(|(key, value)| {
+                    let key_str = key.extract::<String>()?;
+                    let value_str = py_obj_to_selection_string(py, value.to_object(py))?;
+                    Ok(format!("{}: {}", key_str, value_str))
+                })
+                .collect::<PyResult<Vec<String>>>()
+        })?
+        .join(", ");
+
+    ps::StringExpr::new(format!("{{{}}}", inner)).into_py_query()
 }
