@@ -238,10 +238,10 @@ pub fn field(name: String) -> Expr {
     }
 }
 
-#[pyfunction]
-pub fn select_list(exprs: Vec<Expr>) -> Expr {
+#[pyfunction(signature = (*args))]
+pub fn select_list(args: Vec<Expr>) -> Expr {
     Expr {
-        node: Node::MultiList(exprs.into_iter().map(|q| q.node).collect()),
+        node: Node::MultiList(args.into_iter().map(|q| q.node).collect()),
     }
 }
 
