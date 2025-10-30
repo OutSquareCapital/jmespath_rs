@@ -3,7 +3,9 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
 fn py_obj_to_selection_string(py: Python<'_>, obj: Py<PyAny>) -> PyResult<String> {
-    let expr_str = ps::from_py_arg(py, obj).to_string_expr()?.into_string();
+    let expr_str = ps::PyArgConverter::new(py, obj)
+        .to_string_expr()?
+        .into_string();
     Ok(if expr_str.is_empty() {
         ps::KWORD_CURRENT.to_string()
     } else {
@@ -22,14 +24,14 @@ impl QueryBuilder {
     }
 
     fn binary_op(&self, py: Python<'_>, other: Py<PyAny>, op: &str) -> PyResult<Self> {
-        ps::from_py_arg(py, other)
+        ps::PyArgConverter::new(py, other)
             .to_string_expr()?
             .into_formatter()
             .as_binary_op(op, &self.expr)
             .into_py_query()
     }
     fn by_func(&self, py: Python<'_>, name: &str, rhs: Py<PyAny>) -> PyResult<Self> {
-        ps::from_py_arg(py, rhs)
+        ps::PyArgConverter::new(py, rhs)
             .to_string_expr()?
             .strip_current()
             .strip_dot()
@@ -71,7 +73,7 @@ impl QueryBuilder {
         self.new_expr(format!("{}[{}]", self.expr, i))
     }
     fn project(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
-        ps::from_py_arg(py, rhs)
+        ps::PyArgConverter::new(py, rhs)
             .to_string_expr()?
             .ensure_leading_dot()
             .into_formatter()
@@ -79,7 +81,7 @@ impl QueryBuilder {
             .into_py_query()
     }
     fn vproject(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
-        ps::from_py_arg(py, rhs)
+        ps::PyArgConverter::new(py, rhs)
             .to_string_expr()?
             .ensure_leading_dot()
             .into_formatter()
@@ -91,9 +93,11 @@ impl QueryBuilder {
     }
 
     fn filter(&self, py: Python<'_>, cond: Py<PyAny>, then: Py<PyAny>) -> PyResult<Self> {
-        let cond_expr = ps::from_py_arg(py, cond).to_string_expr()?.strip_current();
+        let cond_expr = ps::PyArgConverter::new(py, cond)
+            .to_string_expr()?
+            .strip_current();
 
-        ps::from_py_arg(py, then)
+        ps::PyArgConverter::new(py, then)
             .to_string_expr()?
             .ensure_leading_dot()
             .into_formatter()
@@ -133,7 +137,7 @@ impl QueryBuilder {
         self.new_expr(format!("!({})", self.expr))
     }
     fn pipe(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
-        ps::from_py_arg(py, rhs)
+        ps::PyArgConverter::new(py, rhs)
             .to_string_expr()?
             .into_formatter()
             .as_pipe(&self.expr)
@@ -164,7 +168,7 @@ impl QueryBuilder {
 
     #[pyo3(name = "map_with")]
     fn map(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
-        ps::from_py_arg(py, rhs)
+        ps::PyArgConverter::new(py, rhs)
             .to_string_expr()?
             .strip_current()
             .strip_dot()
@@ -196,7 +200,7 @@ pub fn field(name: String) -> QueryBuilder {
 
 #[pyfunction]
 pub fn lit(py: Python<'_>, value: Py<PyAny>) -> PyResult<QueryBuilder> {
-    ps::from_py_arg(py, value)
+    ps::PyArgConverter::new(py, value)
         .to_literal_expr()?
         .into_py_query()
 }

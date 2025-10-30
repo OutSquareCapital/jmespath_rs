@@ -33,16 +33,15 @@ impl<State> StringExpr<State> {
     }
 }
 
-pub fn from_py_arg<'py>(py: Python<'py>, obj: Py<PyAny>) -> PyArgConverter<'py> {
-    PyArgConverter { py, obj }
-}
-
 pub struct PyArgConverter<'py> {
     py: Python<'py>,
     obj: Py<PyAny>,
 }
 
 impl<'py> PyArgConverter<'py> {
+    pub fn new(py: Python<'py>, obj: Py<PyAny>) -> Self {
+        PyArgConverter { py, obj }
+    }
     pub fn to_string_expr(self) -> PyResult<StringExpr<Preprocessing>> {
         let ob_bound = self.obj.bind(self.py);
         if let Ok(q) = ob_bound.extract::<PyRef<QueryBuilder>>() {
