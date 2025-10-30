@@ -1,6 +1,6 @@
 from typing import Any
 import random
-from typing import TypedDict
+from typing import TypedDict, NamedTuple
 
 from enum import StrEnum, auto
 
@@ -11,14 +11,11 @@ from faker import Faker
 type JsonData = dict[str, Any]
 
 
-class BenchmarkResult(TypedDict):
+class BenchmarkResult(NamedTuple):
     size: int
     case_name: str
     qrydict: float
     jmespth: float
-
-
-LIMIT = 1000
 
 
 class Tags(StrEnum):
@@ -27,8 +24,6 @@ class Tags(StrEnum):
     LIMITED = auto()
     EXCLUSIVE = auto()
 
-
-TAGS_LIST = [tag.value for tag in Tags]
 
 fake = Faker()
 
@@ -52,7 +47,7 @@ class ProductFactory(base.DictFactory):
         lambda _: round(fake.pyfloat(min_value=5.0, max_value=100.0, right_digits=2), 2)
     )
     in_stock = LazyAttribute(lambda _: fake.pybool())
-    tag = fz.FuzzyChoice(TAGS_LIST)
+    tag = fz.FuzzyChoice([tag.value for tag in Tags])
 
 
 class SaleRecordFactory(DictFactory):

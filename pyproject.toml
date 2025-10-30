@@ -17,6 +17,7 @@ profile = "release"
 
 [dependency-groups]
 dev = [
+    "factory-boy>=3.3.3",
     "jmespath>=1.0.1",
     "polars>=1.34.0",
 ]

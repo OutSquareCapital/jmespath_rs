@@ -26,6 +26,5 @@ shape: (5, 5)
 ```bash
 maturin build --release
 uv pip install -e .
-uv run  -m tests/checks.py
-uv run  -m tests/bench.py
+uv run  -m tests.bench
 ```

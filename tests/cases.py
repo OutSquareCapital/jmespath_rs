@@ -10,19 +10,15 @@ class Case:
     name: str
     build: Callable[[], qd.Expr]
     jmes_query: str
-    data: dict[str, Any] | None = None
 
     def check(self, data: dict[str, Any]) -> None:
         """Checks the query against the provided data."""
-        test_data = self.data if self.data is not None else data
-        q = self.build()
-        expr = self.jmes_query
 
-        got = qd.DataJson(test_data).collect(q)
-        want = jmespath.search(expr, test_data)
+        got = qd.DataJson(data).collect(self.build())
+        want = jmespath.search(self.jmes_query, data)
 
         assert got == want, (
-            f"{self.name}: \n  Query: {expr!r}\n  Got:   {got!r}\n  Want:  {want!r}"
+            f"{self.name}: \n  Query: {self.jmes_query!r}\n  Got:   {got!r}\n  Want:  {want!r}"
         )
         print(f"✔ {self.name}")
 
@@ -138,7 +134,7 @@ CASES: list[Case] = [
     Case(
         "to_string", lambda: qd.field("metadata").d.to_string(), "to_string(metadata.d)"
     ),
-    Case("to_number", lambda: qd.lit("42").to_number(), "to_number(`42`)", data={}),
+    Case("to_number", lambda: qd.lit("42").to_number(), "to_number(`42`)"),
     Case(
         "values-of-object",
         lambda: qd.field("metadata").d.values(),
