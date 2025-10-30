@@ -26,7 +26,6 @@ impl QueryBuilder {
             .to_string_expr()?
             .into_formatter()
             .as_binary_op(op, &self.expr)
-            .inner()
             .into_py_query()
     }
     fn by_func(&self, py: Python<'_>, name: &str, rhs: Py<PyAny>) -> PyResult<Self> {
@@ -36,7 +35,6 @@ impl QueryBuilder {
             .strip_dot()
             .into_formatter()
             .as_by_func(name, &self.expr)
-            .inner()
             .into_py_query()
     }
 }
@@ -78,7 +76,6 @@ impl QueryBuilder {
             .ensure_leading_dot()
             .into_formatter()
             .as_project(&self.expr, ps::KWORD_ARRAY_PROJECT)
-            .inner()
             .into_py_query()
     }
     fn vproject(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
@@ -87,7 +84,6 @@ impl QueryBuilder {
             .ensure_leading_dot()
             .into_formatter()
             .as_project(&self.expr, ps::KWORD_OBJECT_PROJECT)
-            .inner()
             .into_py_query()
     }
     fn flatten(&self) -> Self {
@@ -102,7 +98,6 @@ impl QueryBuilder {
             .ensure_leading_dot()
             .into_formatter()
             .as_filter(&self.expr, &cond_expr)
-            .inner()
             .into_py_query()
     }
     fn eq(&self, py: Python<'_>, other: Py<PyAny>) -> PyResult<Self> {
@@ -142,7 +137,6 @@ impl QueryBuilder {
             .to_string_expr()?
             .into_formatter()
             .as_pipe(&self.expr)
-            .inner()
             .into_py_query()
     }
 
@@ -176,7 +170,6 @@ impl QueryBuilder {
             .strip_dot()
             .into_formatter()
             .as_map(&self.expr)
-            .inner()
             .into_py_query()
     }
     fn sort_by(&self, py: Python<'_>, rhs: Py<PyAny>) -> PyResult<Self> {
