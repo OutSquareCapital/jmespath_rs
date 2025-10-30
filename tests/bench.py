@@ -1,59 +1,15 @@
 from __future__ import annotations
 import statistics
 import time
-from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Any
 
 import jmespath
 import jmespath_rs as qd
 import polars as pl
-from tests.data import JsonData, BenchmarkResult, generate_data
+from tests.data import BenchmarkResult, generate_db, DataBase
+from tests.cases import CASES, Case
 
-type QueryFunc = Callable[[JsonData], Any]
-
-
-@dataclass(slots=True, frozen=True)
-class BenchmarkCase:
-    name: str
-    qd_query: qd.Expr
-    jmespath_query: str
-
-
-BENCHMARKS: list[BenchmarkCase] = [
-    BenchmarkCase(
-        name="Projection simple (names)",
-        qd_query=qd.field("users").project("name"),
-        jmespath_query="users[].name",
-    ),
-    BenchmarkCase(
-        name="Filtre complexe (active & >30 & tag1)",
-        qd_query=qd.field("users")
-        .filter(
-            qd.field("age")
-            .gt(30)
-            .and_(qd.field("active").eq(True))
-            .and_(qd.field("tags").eq("tag1").or_(qd.field("tags").eq("tag2"))),
-        )
-        .then(qd.lit("name")),
-        jmespath_query="users[?age > `30` && active == `true` && (tags == `tag1` || tags == `tag2`)].name",
-    ),
-    BenchmarkCase(
-        name="Tri (sort_by age)",
-        qd_query=qd.field("users").sort_by(qd.field("age")),
-        jmespath_query="sort_by(users, &age)",
-    ),
-    BenchmarkCase(
-        name="Tranche (slice 10:20)",
-        qd_query=qd.field("users").slice(10, 20),
-        jmespath_query="users[10:20]",
-    ),
-    BenchmarkCase(
-        name="Accès champ (first user name)",
-        qd_query=qd.field("users").index(0).name,
-        jmespath_query="users[0].name",
-    ),
-]
+BENCHMARKS: list[Case] = [case for case in CASES]
 
 DATA_SIZES: list[int] = [500, 2000, 8000]
 
@@ -74,13 +30,13 @@ def format_results(results: list[BenchmarkResult]) -> pl.DataFrame:
         .with_columns(_speedup())
         .group_by("case_name")
         .agg(
-            pl.col("jmespth").mul(1000).alias("jmespth_ms"),
-            pl.col("qrydict").mul(1000).alias("qrydict_ms"),
+            pl.col("jmespth").mul(1000).round(2).alias("jmespth_ms"),
+            pl.col("qrydict").mul(1000).round(2).alias("qrydict_ms"),
             "speedup_pct",
             pl.col("speedup_pct")
             .mean()
-            .truediv(10)
-            .cast(pl.UInt32)
+            .truediv(100)
+            .round(2)
             .alias("avg_speedup_factor"),
         )
         .sort("avg_speedup_factor", descending=True)
@@ -96,26 +52,25 @@ def _jsem_func(data: dict[str, Any], compiled: Any) -> Any:
     return compiled.search(data)
 
 
-def add_case(
-    case: BenchmarkCase, size: int, runs: int, data: JsonData
-) -> BenchmarkResult:
-    jp_expr = case.jmespath_query
+def add_case(case: Case, size: int, runs: int, data: DataBase) -> BenchmarkResult:
+    jp_expr = case.jmes_query
     jp_compiled = jmespath.compile(jp_expr)
-    df = qd.DataJson(data)
-    qd_query_obj = case.qd_query
+    test_data = case.data if case.data is not None else data
+    df = qd.DataJson(test_data)
+    qd_query_obj = case.build()
     jp_search_func = jp_compiled.search
-    assert jp_search_func(data) == _qd_func(df, qd_query_obj)
 
     timings_qd: list[float] = []
-    for i in range(runs):
+    for _ in range(runs):
         start = time.perf_counter()
         _qd_func(df, qd_query_obj)
         end = time.perf_counter()
         timings_qd.append(end - start)
+
     timings_jp: list[float] = []
-    for i in range(runs):
+    for _ in range(runs):
         start = time.perf_counter()
-        jp_search_func(data)
+        jp_search_func(test_data)
         end = time.perf_counter()
         timings_jp.append(end - start)
 
@@ -130,8 +85,13 @@ def add_case(
 def main(runs: int) -> pl.DataFrame:
     print(f"Lancement des benchmarks (Runs par test: {runs})\n")
     results: list[BenchmarkResult] = []
+    data = generate_db(10)
+    print(f"Running {len(BENCHMARKS)} benchmarks on sample data...")
+    for case in BENCHMARKS:
+        case.check(data)
+    print("All benchmark cases passed correctness checks.\n")
     for size in DATA_SIZES:
-        data = generate_data(size)
+        data = generate_db(size)
 
         for case in BENCHMARKS:
             results.append(add_case(case, size, runs, data))
@@ -140,4 +100,4 @@ def main(runs: int) -> pl.DataFrame:
 
 
 if __name__ == "__main__":
-    main(20).pipe(print)
+    main(5).pipe(print)

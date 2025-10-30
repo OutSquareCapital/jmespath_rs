@@ -3,7 +3,6 @@ from collections.abc import Callable
 from typing import Any
 import jmespath
 import jmespath_rs as qd
-from tests.data import DATA_MIXED, DATA_USER, DATA_EDGE
 
 
 @dataclass(slots=True, frozen=True)
@@ -11,138 +10,139 @@ class Case:
     name: str
     build: Callable[[], qd.Expr]
     jmes_query: str
-    data: dict[str, Any]
+    data: dict[str, Any] | None = None
 
-    def check(self) -> None:
+    def check(self, data: dict[str, Any]) -> None:
+        """Checks the query against the provided data."""
+        test_data = self.data if self.data is not None else data
         q = self.build()
         expr = self.jmes_query
-        got = qd.DataJson(self.data).collect(q)
-        want = jmespath.search(expr, self.data)
-        assert got == want, f"{self.name}: \n{got=!r} != \n{want=!r}  \nexpr={expr!r}"
-        print(f"✔ {self.name}, \nexpr: \n  {expr}, \nresult: \n  {got!r}")
+
+        got = qd.DataJson(test_data).collect(q)
+        want = jmespath.search(expr, test_data)
+
+        assert got == want, (
+            f"{self.name}: \n  Query: {expr!r}\n  Got:   {got!r}\n  Want:  {want!r}"
+        )
+        print(f"✔ {self.name}")
 
 
 CASES: list[Case] = [
+    # region: Core Expressions
     Case(
-        name="dot-field-index-dot",
-        build=lambda: qd.field("foo").bar.index(0).baz,
-        jmes_query="foo.bar[0].baz",
-        data=DATA_MIXED,
+        "field.subfield.index.field",
+        lambda: qd.field("metadata").a.b.index(0).c,
+        "metadata.a.b[0].c",
     ),
     Case(
-        name="simple-field",
-        build=lambda: qd.field("users").index(0).name,
-        jmes_query="users[0].name",
-        data=DATA_USER,
+        "simple-field-access",
+        lambda: qd.field("users").index(0).name,
+        "users[0].name",
     ),
     Case(
-        name="slice",
-        build=lambda: qd.field("arr").slice(1, 3),
-        jmes_query="arr[1:3]",
-        data=DATA_MIXED,
+        "slice-array",
+        lambda: qd.field("users").slice(1, 10, 2),
+        "users[1:10:2]",
     ),
     Case(
-        name="projection",
-        build=lambda: qd.field("foo").bar.project("baz"),
-        jmes_query="foo.bar[].baz",
-        data=DATA_MIXED,
+        "list-projection",
+        lambda: qd.field("users").project("name"),
+        "users[].name",
     ),
     Case(
-        name="value-projection-sort",
-        build=lambda: qd.field("stats").values().sort(),
-        jmes_query="sort(values(stats))",
-        data=DATA_MIXED,
+        "object-projection",
+        lambda: qd.field("metadata").d.vproject("e"),
+        "metadata.d.*.e",
     ),
     Case(
-        name="filter-then-name",
-        build=lambda: (
-            qd.field("users")
-            .filter(qd.field("age").ge(18))
-            .then(
-                qd.field("name"),
-            )
+        "flatten-nested-list",
+        lambda: qd.field("metadata").i.flatten(),
+        "metadata.i[][]",
+    ),
+    Case(
+        "pipe-to-length",
+        lambda: qd.field("users").pipe(qd.identity().length()),
+        "length(users)",
+    ),
+    # endregion
+    # region: Filters
+    Case(
+        "filter-age-and-active",
+        lambda: qd.field("users")
+        .filter(qd.field("age").ge(30).and_(qd.field("active").eq(True)))
+        .then(qd.field("name")),
+        "users[?age >= `30` && active == `true`].name",
+    ),
+    # endregion
+    # region: Multiselect
+    Case(
+        "multiselect-dict",
+        lambda: qd.select_dict(
+            names=qd.field("users").project("name"), count=qd.field("users").length()
         ),
-        jmes_query="users[?age >= `18`].name",
-        data=DATA_USER,
+        "{names: users[].name, count: length(users)}",
     ),
     Case(
-        name="multi-select-dict",
-        build=lambda: qd.select_dict(
-            a=qd.field("stats").a,
-            b=qd.field("stats").b,
+        "multiselect-list",
+        lambda: qd.select_list(
+            qd.field("users").index(0), qd.field("products").index(0)
         ),
-        jmes_query="{a: stats.a, b: stats.b}",
-        data=DATA_MIXED,
+        "[users[0], products[0]]",
+    ),
+    # endregion
+    # region: Comparisons and Logic
+    Case(
+        "numeric-comparison-eq",
+        lambda: qd.field("metadata").j.index(1).eq(1),
+        "metadata.j[1] == `1`",
     ),
     Case(
-        name="pipe-length",
-        build=lambda: qd.field("foo").bar.length(),
-        jmes_query="length(foo.bar)",
-        data=DATA_MIXED,
+        "boolean-comparison-eq",
+        lambda: qd.field("metadata").k.index(0).eq(True),
+        "metadata.k[0] == `true`",
     ),
     Case(
-        name="numbers-vs-bool-eq",
-        build=lambda: qd.field("numbers").index(0).eq(False),
-        jmes_query="numbers[0] == `false`",
-        data=DATA_EDGE,
+        "and-or-not-logic",
+        lambda: qd.field("metadata")
+        .l.m.n.o.gt(1)
+        .and_(qd.field("metadata").l.m.n.o.eq(5).not_())
+        .or_(0),
+        "(metadata.l.m.n.o > `1` && !(metadata.l.m.n.o == `5`)) || `0`",
+    ),
+    # endregion
+    # region: Available Built-in Functions
+    Case("keys-of-object", lambda: qd.field("metadata").d.keys(), "keys(metadata.d)"),
+    Case("length-of-array", lambda: qd.field("users").length(), "length(users)"),
+    Case(
+        "map-string-lengths",
+        lambda: qd.field("users").project("name").map_with(qd.identity().length()),
+        "map(&length(@), users[].name)",
     ),
     Case(
-        name="and-or-not",
-        build=lambda: (
-            qd.field("obj").x.y.z.gt(1).and_(qd.field("obj").x.y.z.eq(5).not_()).or_(0)
-        ),
-        jmes_query="(obj.x.y.z > `1` && !(obj.x.y.z == `5`)) || `0`",
-        data=DATA_EDGE,
+        "max_by-price",
+        lambda: qd.field("products").max_by(qd.field("price")),
+        "max_by(products, &price)",
     ),
     Case(
-        name="map_with-length",
-        build=lambda: (
-            qd.field("users").project("name").map_with(qd.identity().length())
-        ),
-        jmes_query="map(&length(@), users[].name)",
-        data=DATA_USER,
+        "min_by-age",
+        lambda: qd.field("users").min_by(qd.field("age")),
+        "min_by(users, &age)",
     ),
+    Case("sort", lambda: qd.field("metadata").h.sort(), "sort(metadata.h)"),
     Case(
-        name="sort_by-age",
-        build=lambda: qd.field("users").sort_by(qd.field("age")),
-        jmes_query="sort_by(users, &age)",
-        data=DATA_USER,
+        "sort-by-age",
+        lambda: qd.field("users").sort_by(qd.field("age")).project("name"),
+        "sort_by(users, &age)[].name",
     ),
+    Case("to_array", lambda: qd.field("metadata").a.to_array(), "to_array(metadata.a)"),
     Case(
-        name="min_by-age",
-        build=lambda: qd.field("users").min_by(qd.field("age")),
-        jmes_query="min_by(users, &age)",
-        data=DATA_USER,
+        "to_string", lambda: qd.field("metadata").d.to_string(), "to_string(metadata.d)"
     ),
+    Case("to_number", lambda: qd.lit("42").to_number(), "to_number(`42`)", data={}),
     Case(
-        name="max_by-age",
-        build=lambda: qd.field("users").max_by(qd.field("age")),
-        jmes_query="max_by(users, &age)",
-        data=DATA_USER,
+        "values-of-object",
+        lambda: qd.field("metadata").d.values(),
+        "values(metadata.d)",
     ),
-    # conversions
-    Case(
-        name="to_array-wrap",
-        build=lambda: qd.field("stats").a.to_array(),
-        jmes_query="to_array(stats.a)",
-        data=DATA_MIXED,
-    ),
-    Case(
-        name="to_string-json",
-        build=lambda: qd.field("stats").to_string(),
-        jmes_query="to_string(stats)",
-        data=DATA_MIXED,
-    ),
-    Case(
-        name="to_number-valid",
-        build=lambda: qd.lit("42").to_number(),
-        jmes_query="to_number(`42`)",
-        data=DATA_MIXED,
-    ),
-    Case(
-        name="flatten-nested",
-        build=lambda: qd.field("nested").flatten(),
-        jmes_query="nested[][]",
-        data=DATA_MIXED,
-    ),
+    # endregion
 ]

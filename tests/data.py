@@ -1,8 +1,12 @@
 from typing import Any
-import string
 import random
 from typing import TypedDict
 
+from enum import StrEnum, auto
+
+from factory import base, Sequence, LazyAttribute, DictFactory
+import factory.fuzzy as fz
+from faker import Faker
 
 type JsonData = dict[str, Any]
 
@@ -14,43 +18,91 @@ class BenchmarkResult(TypedDict):
     jmespth: float
 
 
-def rand_str(k: int) -> str:
-    return "".join(random.choices(string.ascii_lowercase, k=k))
+LIMIT = 1000
 
 
-DATA_USER: dict[str, Any] = {
-    "users": [
-        {"name": "Ada", "age": 36},
-        {"name": "Bob", "age": 17},
-        {"name": "Cy", "age": 20},
-    ]
-}
-
-DATA_MIXED: dict[str, Any] = {
-    "foo": {"bar": [{"baz": 1}, {"baz": 2}]},
-    "stats": {"a": 3, "b": 1, "c": 2},
-    "arr": [3, 1, 2, 2],
-    "nested": [[1, 2], [3], 4],
-}
-
-DATA_EDGE: dict[str, Any] = {
-    "numbers": [0, 1, 2],
-    "truth": [True, False],
-    "obj": {"x": {"y": {"z": 5}}},
-}
+class Tags(StrEnum):
+    NEW = auto()
+    POPULAR = auto()
+    LIMITED = auto()
+    EXCLUSIVE = auto()
 
 
-def generate_user(i: int) -> dict[str, Any]:
+TAGS_LIST = [tag.value for tag in Tags]
+
+fake = Faker()
+
+
+class UserFactory(base.DictFactory):
+    id = Sequence(lambda n: n + 1)
+    name = LazyAttribute(lambda _: fake.name())
+    age = LazyAttribute(lambda _: fake.random_int(min=18, max=65))
+    active = LazyAttribute(lambda _: fake.pybool())
+    tags = LazyAttribute(
+        lambda _: [
+            random.choice(["tag1", "tag2", "tag3"]) for _ in range(random.randint(1, 3))
+        ]
+    )
+
+
+class ProductFactory(base.DictFactory):
+    product_id = Sequence(lambda n: n + 1)
+    name = LazyAttribute(lambda _: fake.word().capitalize())
+    price = LazyAttribute(
+        lambda _: round(fake.pyfloat(min_value=5.0, max_value=100.0, right_digits=2), 2)
+    )
+    in_stock = LazyAttribute(lambda _: fake.pybool())
+    tag = fz.FuzzyChoice(TAGS_LIST)
+
+
+class SaleRecordFactory(DictFactory):
+    order_id = Sequence(lambda n: n + 1)
+    customer_id = LazyAttribute(lambda o: o.customer["id"])
+    product_id = LazyAttribute(lambda o: o.product["product_id"])
+    items = LazyAttribute(lambda _: fake.random_int(min=1, max=10))
+    amount = LazyAttribute(lambda o: round(o.product["price"] * o.items, 2))
+    shipped = LazyAttribute(lambda _: fake.pybool())
+
+    class Params:
+        customer = None
+        product = None
+
+
+class DataBase(TypedDict):
+    users: list[dict[str, Any]]
+    sales: list[dict[str, Any]]
+    products: list[dict[str, Any]]
+    tags: dict[str, int]
+    metadata: dict[str, Any]
+
+
+def _metadata() -> dict[str, Any]:
     return {
-        "id": i,
-        "name": rand_str(10),
-        "age": random.randint(18, 65),
-        "active": random.choice([True, False]),
-        "tags": [
-            random.choice(["tag1", "tag2", "tag3"]) for _ in range(random.randint(1, 5))
-        ],
+        "a": {"b": [{"c": 1}, {"c": 2}]},
+        "d": {"e": 3, "f": 1, "g": 2},
+        "h": [3, 1, 2, 2],
+        "i": [[1, 2], [3], 4],
+        "j": [0, 1, 2],
+        "k": [True, False],
+        "l": {"m": {"n": {"o": 5}}},
     }
 
 
-def generate_data(n: int) -> JsonData:
-    return {"users": [generate_user(i) for i in range(n)]}
+def generate_db(n: int) -> DataBase:
+    product_count = 20
+    users: list[dict[str, Any]] = UserFactory.build_batch(n)
+    products: list[dict[str, Any]] = ProductFactory.build_batch(product_count)
+    sales = [
+        SaleRecordFactory.build(
+            customer=random.choice(users), product=random.choice(products)
+        )
+        for _ in range(n * 2)
+    ]
+
+    return DataBase(
+        users=users,
+        sales=sales,
+        products=products,
+        tags=dict((tag.value, i) for i, tag in enumerate(Tags)),
+        metadata=_metadata(),
+    )
