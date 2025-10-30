@@ -1,26 +1,16 @@
 from __future__ import annotations
-
-import random
 import statistics
-import string
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, TypedDict
+from typing import Any
 
 import jmespath
 import jmespath_rs as qd
 import polars as pl
+from tests.data import JsonData, BenchmarkResult, generate_data
 
-type JsonData = dict[str, Any]
 type QueryFunc = Callable[[JsonData], Any]
-
-
-class BenchmarkResult(TypedDict):
-    size: int
-    case_name: str
-    qrydict: float
-    jmespth: float
 
 
 @dataclass(slots=True, frozen=True)
@@ -28,26 +18,6 @@ class BenchmarkCase:
     name: str
     qd_query: qd.Expr
     jmespath_query: str
-
-
-def rand_str(k: int) -> str:
-    return "".join(random.choices(string.ascii_lowercase, k=k))
-
-
-def generate_user(i: int) -> dict[str, Any]:
-    return {
-        "id": i,
-        "name": rand_str(10),
-        "age": random.randint(18, 65),
-        "active": random.choice([True, False]),
-        "tags": [
-            random.choice(["tag1", "tag2", "tag3"]) for _ in range(random.randint(1, 5))
-        ],
-    }
-
-
-def generate_data(n: int) -> JsonData:
-    return {"users": [generate_user(i) for i in range(n)]}
 
 
 BENCHMARKS: list[BenchmarkCase] = [
