@@ -1,5 +1,4 @@
 use pyo3::prelude::*;
-mod conversions;
 mod datajson;
 mod parsing;
 mod querybuilder;

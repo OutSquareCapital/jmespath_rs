@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import statistics
 import random
 import string
 import time
@@ -67,28 +67,49 @@ BENCHMARKS: list[BenchmarkCase] = [
         name="Tri (sort_by age)",
         qd_query=qd.field("users").sort_by(qd.field("age")),
     ),
+    BenchmarkCase(
+        name="Tranche (slice 10:20)",
+        qd_query=qd.field("users").slice(10, 20),
+    ),
+    BenchmarkCase(
+        name="Accès champ (first user name)",
+        qd_query=qd.field("users").index(0).field("name"),
+    ),
+    BenchmarkCase(
+        name="Multi-sélection dico (id et age)",
+        qd_query=qd.select_dict(
+            id=qd.field("users").index(0).field("id"),
+            age=qd.field("users").index(0).field("age"),
+        ),
+    ),
 ]
 
-DATA_SIZES: list[int] = [500, 1000, 10_000, 100_000]
+DATA_SIZES: list[int] = [500, 2000, 8000]
+
+
+def _speedup():
+    return (
+        pl.col("jmespth")
+        .truediv(pl.col("qrydict"))
+        .mul(100)
+        .round(2)
+        .alias("speedup_pct")
+    )
 
 
 def format_results(results: list[BenchmarkResult]) -> pl.DataFrame:
     return (
         pl.LazyFrame(results)
-        .unpivot(index=["size", "case_name"], variable_name="lib", value_name="time")
-        .group_by("size", "case_name")
-        .agg(
-            pl.all().exclude("time"),
-            pl.col("time").mul(1000).round(3).alias("time"),
-            pl.col("time").rank().alias("rank"),
-        )
-        .sort("case_name", "size")
+        .with_columns(_speedup())
+        .group_by("case_name")
+        .agg("speedup_pct", pl.col("speedup_pct").mean().alias("avg_speedup_pct"))
+        .sort("avg_speedup_pct", descending=True)
         .collect()
     )
 
 
-def _qd_func(df: qd.DataJson, qry: qd.QueryBuilder) -> qd.DataJson:
-    return df.query(qry)
+def _qd_func(df: qd.DataJson, qry: qd.QueryBuilder):
+    return df.query(qry).collect()
 
 
 def _jsem_func(data: dict[str, Any], compiled: Any) -> Any:
@@ -103,17 +124,17 @@ def add_case(
     df = qd.DataJson(data)
     qd_query_obj = case.qd_query
     jp_search_func = jp_compiled.search
-    assert jp_search_func(data) == _qd_func(df, qd_query_obj).collect()
+    assert jp_search_func(data) == _qd_func(df, qd_query_obj)
 
-    start = time.perf_counter()
     timings_qd = []
     for i in range(runs):
+        start = time.perf_counter()
         _qd_func(df, qd_query_obj)
         end = time.perf_counter()
         timings_qd.append(end - start)
-    start = time.perf_counter()
     timings_jp = []
     for i in range(runs):
+        start = time.perf_counter()
         jp_search_func(data)
         end = time.perf_counter()
         timings_jp.append(end - start)
@@ -121,8 +142,8 @@ def add_case(
     return BenchmarkResult(
         size=size,
         case_name=case.name,
-        qrydict=sum(timings_qd) / runs,
-        jmespth=sum(timings_jp) / runs,
+        qrydict=statistics.median(timings_qd),
+        jmespth=statistics.median(timings_jp),
     )
 
 
@@ -139,4 +160,4 @@ def main(runs: int) -> pl.DataFrame:
 
 
 if __name__ == "__main__":
-    main(5).pipe(print)
+    main(20).pipe(print)

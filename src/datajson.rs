@@ -1,12 +1,17 @@
-use crate::conversions::{new_error, py_to_variable, variable_to_py};
 use crate::querybuilder as qb;
-use jmespath::{Expression, Variable}; // Ajout de Expression
+use jmespath::{Expression, Variable};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use std::cell::RefCell; // Ajout de RefCell
-use std::collections::HashMap; // Ajout de HashMap
+use pythonize::{depythonize, pythonize};
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 type QueryCache = Rc<RefCell<HashMap<String, Expression<'static>>>>;
+
+fn new_error(msg: &str) -> PyErr {
+    PyValueError::new_err(msg.to_string())
+}
 
 #[pyclass(unsendable, name = "DataJson")]
 pub struct DataJson {
@@ -18,7 +23,7 @@ pub struct DataJson {
 impl DataJson {
     #[new]
     fn new(py: Python<'_>, data: Py<PyAny>) -> PyResult<Self> {
-        let var = py_to_variable(py, data.bind(py))?;
+        let var = depythonize(data.bind(py))?;
         Ok(DataJson {
             data: Rc::new(var),
             cache: Rc::new(RefCell::new(HashMap::new())),
@@ -48,7 +53,7 @@ impl DataJson {
     }
 
     fn collect(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        variable_to_py(py, self.data.as_ref())
+        Ok(pythonize(py, self.data.as_ref())?.to_object(py))
     }
 
     fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
