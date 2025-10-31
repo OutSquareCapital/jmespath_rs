@@ -1,5 +1,6 @@
 use crate::checks::*;
 use crate::nodes::Node;
+use crate::nodes::PyObjectWrapper;
 use pyo3::basic::CompareOp;
 use pyo3::prelude::*;
 use pyo3::types::*;
@@ -14,7 +15,7 @@ type Bounded<'py> = Bound<'py, PyAny>;
 pub fn eval_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Result<'py> {
     match node {
         Node::This => Ok(value.clone()),
-        Node::Literal(obj) => Ok(obj.0.clone_ref(py).into_bound(py).into_any()),
+        Node::Literal(obj) => eval_literal(py, obj),
         Node::Field(name) => eval_field(py, value, name),
         Node::Index(i) => eval_index(py, value, i),
         Node::Slice(start, end, step) => eval_slice(py, value, start, end, step),
@@ -64,6 +65,11 @@ pub fn eval_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Resu
         Node::Type(x) => eval_type(py, value, x),
     }
 }
+
+fn eval_literal<'py>(py: Python<'py>, obj: &PyObjectWrapper) -> Result<'py> {
+    Ok(obj.0.clone_ref(py).into_bound(py).into_any())
+}
+
 fn eval_field<'py>(py: Python<'py>, value: &Bounded<'py>, name: &str) -> Result<'py> {
     if value.is_instance_of::<PyDict>() {
         let d = value.downcast::<PyDict>()?;
@@ -154,7 +160,6 @@ fn eval_project_array<'py>(
     }
     Ok(out.into_any())
 }
-
 fn eval_project_object<'py>(
     py: Python<'py>,
     value: &Bounded<'py>,
@@ -162,19 +167,37 @@ fn eval_project_object<'py>(
     rhs: &Node,
 ) -> Result<'py> {
     let basev = eval_any(py, base, value)?;
-    if basev.is_instance_of::<PyDict>() {
-        let d = basev.downcast::<PyDict>()?;
-        let out = PyList::empty_bound(py);
-        for (_, val) in d.iter() {
-            let mapped = eval_any(py, rhs, &val)?;
-            if !mapped.is_none() {
-                out.append(mapped)?;
-            }
-        }
-        Ok(out.into_any())
-    } else {
-        Ok(py.None().into_bound(py))
+    if !is_list(&basev) {
+        return Ok(py.None().into_bound(py));
     }
+
+    let seq = basev.downcast::<PySequence>()?;
+    let outer_list = PyList::empty_bound(py);
+
+    for i in 0..seq.len()? {
+        let item = seq.get_item(i)?;
+        let wildcard_result = if item.is_instance_of::<PyDict>() {
+            item.downcast::<PyDict>()?.values().into_any()
+        } else {
+            py.None().into_bound(py)
+        };
+        let mapped_result = if is_list(&wildcard_result) {
+            let val_seq = wildcard_result.downcast::<PySequence>()?;
+            let inner_list = PyList::empty_bound(py);
+            for j in 0..val_seq.len()? {
+                let val_item = val_seq.get_item(j)?;
+                let mapped = eval_any(py, rhs, &val_item)?;
+                if !mapped.is_none() {
+                    inner_list.append(mapped)?;
+                }
+            }
+            inner_list.into_any()
+        } else {
+            eval_any(py, rhs, &wildcard_result)?
+        };
+        outer_list.append(mapped_result)?;
+    }
+    Ok(outer_list.into_any())
 }
 
 fn eval_flatten<'py>(py: Python<'py>, value: &Bounded<'py>, inner: &Node) -> Result<'py> {
