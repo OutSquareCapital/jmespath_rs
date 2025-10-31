@@ -18,7 +18,7 @@ class Output(StrEnum):
 
 
 def header() -> str:
-    return "| query | 50 Runs | 200 Runs | 800 Runs |\n|---|---|---|---|\n"
+    return "| query | 50 | 200 | 800 |\n|---|---|---|---|\n"
 
 
 class Cols(StrEnum):
@@ -30,8 +30,7 @@ class Cols(StrEnum):
 
 
 CURRENT = Path(__file__).parent
-OUTPUT = CURRENT.joinpath("benchmark_results").with_suffix(".ndjson")
-README = CURRENT.parent.joinpath("README").with_suffix(".md")
+README = Path().joinpath("README").with_suffix(".md")
 
 
 def _speedup():
@@ -49,7 +48,7 @@ def _add_col(nb_runs: int) -> str:
 
 
 def _add_row(row: ResultRow) -> str:
-    query = row["query"].replace("|", "\\|").replace("*", "\\*")
+    query = row["query"].replace("|", "\\|").replace("*", r"\*")
     return f"| {query} | {row['with_50_runs']} | {row['with_200_runs']} | {row['with_800_runs']} |\n"
 
 
@@ -87,11 +86,12 @@ def format_results(results: list[BenchmarkResult], update_readme: bool) -> None:
             values=Cols.SPEEDUP,
             aggregate_function="median",
         )
+        .lazy()
         .with_columns(
             pl.all().exclude(Cols.QUERY).name.suffix("_runs").name.prefix("with_")
         )
         .sort(Cols.QUERY)
+        .collect()
     )
-    df.write_ndjson(OUTPUT)
     if update_readme:
         _write_markdown_table(df, README)

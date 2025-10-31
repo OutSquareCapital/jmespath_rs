@@ -3,12 +3,10 @@ import random
 from typing import TypedDict, NamedTuple
 
 from enum import StrEnum, auto
-
 from factory import base, Sequence, LazyAttribute, DictFactory
-import factory.fuzzy as fz
 from faker import Faker
 
-type JsonData = dict[str, Any]
+type Table = list[dict[str, Any]]
 
 
 class BenchmarkResult(NamedTuple):
@@ -24,6 +22,13 @@ class Tags(StrEnum):
     LIMITED = auto()
     EXCLUSIVE = auto()
 
+    @classmethod
+    def to_dict(cls):
+        return dict((tag.value, i) for i, tag in enumerate(cls))
+
+
+TAGS_LIST = [tag.value for tag in Tags]
+CATEGORIES: list[str] = ["VIP", "Regular", "Guest"]
 
 fake = Faker()
 
@@ -31,12 +36,13 @@ fake = Faker()
 class UserFactory(base.DictFactory):
     id = Sequence(lambda n: n + 1)
     name = LazyAttribute(lambda _: fake.name())
+    address = LazyAttribute(
+        lambda _: {"street": fake.street_address(), "city": fake.city()}
+    )
     age = LazyAttribute(lambda _: fake.random_int(min=18, max=65))
     active = LazyAttribute(lambda _: fake.pybool())
-    tags = LazyAttribute(
-        lambda _: [
-            random.choice(["tag1", "tag2", "tag3"]) for _ in range(random.randint(1, 3))
-        ]
+    category = LazyAttribute(
+        lambda _: [random.choice(CATEGORIES) for _ in range(random.randint(1, 3))]
     )
 
 
@@ -47,7 +53,7 @@ class ProductFactory(base.DictFactory):
         lambda _: round(fake.pyfloat(min_value=5.0, max_value=100.0, right_digits=2), 2)
     )
     in_stock = LazyAttribute(lambda _: fake.pybool())
-    tag = fz.FuzzyChoice([tag.value for tag in Tags])
+    tags = LazyAttribute(lambda _: random.choices(TAGS_LIST))
 
 
 class SaleRecordFactory(DictFactory):
@@ -64,41 +70,25 @@ class SaleRecordFactory(DictFactory):
 
 
 class DataBase(TypedDict):
-    users: list[dict[str, Any]]
-    sales: list[dict[str, Any]]
-    products: list[dict[str, Any]]
+    users: Table
+    sales: Table
+    products: Table
     tags: dict[str, int]
-    metadata: dict[str, Any]
-
-
-def _metadata() -> dict[str, Any]:
-    return {
-        "a": {"b": [{"c": 1}, {"c": 2}]},
-        "d": {"e": 3, "f": 1, "g": 2},
-        "h": [3, 1, 2, 2],
-        "i": [[1, 2], [3], 4],
-        "j": [0, 1, 2],
-        "k": [True, False],
-        "l": {"m": {"n": {"o": 5}}},
-        "m": ["a", "b", "c"],
-    }
 
 
 def generate_db(n: int) -> DataBase:
-    product_count = 20
-    users: list[dict[str, Any]] = UserFactory.build_batch(n)
-    products: list[dict[str, Any]] = ProductFactory.build_batch(product_count)
-    sales = [
-        SaleRecordFactory.build(
-            customer=random.choice(users), product=random.choice(products)
-        )
-        for _ in range(n * 2)
-    ]
+    users: Table = UserFactory.build_batch(n)
+    products: Table = ProductFactory.build_batch(20)
 
     return DataBase(
         users=users,
-        sales=sales,
+        sales=_get_sales(users, products, n),
         products=products,
-        tags=dict((tag.value, i) for i, tag in enumerate(Tags)),
-        metadata=_metadata(),
+        tags=Tags.to_dict(),
+    )
+
+
+def _get_sales(users: Table, products: Table, n: int) -> Table:
+    return SaleRecordFactory.build_batch(
+        n * 2, customer=random.choice(users), product=random.choice(products)
     )

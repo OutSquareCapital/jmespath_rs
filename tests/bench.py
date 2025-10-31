@@ -5,7 +5,27 @@ from typing import Any
 from dataclasses import dataclass
 import jmespath
 import jmespath_rs as qd
+import math
 from tests.data import BenchmarkResult, DataBase
+
+
+@dataclass(slots=True)
+class CheckResult:
+    got: Any
+    want: Any
+
+    def _check_equal(self) -> bool:
+        if isinstance(self.got, float) and isinstance(self.want, float):
+            return math.isclose(self.got, self.want)
+        else:
+            return self.got == self.want
+
+    def _on_error(self, jmes_query: str) -> str:
+        return f"Query: {jmes_query!r}\n  Got:   {self.got!r}\n  Want:  {self.want!r}"
+
+    def assert_equal(self, jmes_query: str) -> None:
+        assert self._check_equal(), self._on_error(jmes_query)
+        print(f"✔ {jmes_query}")
 
 
 @dataclass(slots=True, frozen=True)
@@ -13,16 +33,12 @@ class Case:
     qd_query: qd.Expr
     jmes_query: str
 
-    def check(self, data: dict[str, Any]) -> None:
+    def check(self, data: DataBase) -> None:
         """Checks the query against the provided data."""
-
-        got = qd.DataJson(data).collect(self.qd_query)
-        want = jmespath.search(self.jmes_query, data)
-
-        assert got == want, (
-            f"{self.jmes_query}: \n  Query: {self.jmes_query!r}\n  Got:   {got!r}\n  Want:  {want!r}"
-        )
-        print(f"✔ {self.jmes_query}")
+        CheckResult(
+            qd.DataJson(data).collect(self.qd_query),
+            jmespath.search(self.jmes_query, data),
+        ).assert_equal(self.jmes_query)
 
     def to_result(self, size: int, runs: int, data: DataBase) -> BenchmarkResult:
         df = qd.DataJson(data)
