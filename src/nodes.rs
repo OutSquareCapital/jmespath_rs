@@ -38,6 +38,21 @@ pub enum Node {
     And(Box<Node>, Box<Node>),
     Or(Box<Node>, Box<Node>),
     Not(Box<Node>),
+    Abs(Box<Node>),
+    Avg(Box<Node>),
+    Ceil(Box<Node>),
+    Contains(Box<Node>, Box<Node>),
+    EndsWith(Box<Node>, Box<Node>),
+    Floor(Box<Node>),
+    Join(Box<Node>, Box<Node>),
+    Max(Box<Node>),
+    Merge(Vec<Node>),
+    Min(Box<Node>),
+    NotNull(Vec<Node>),
+    Reverse(Box<Node>),
+    StartsWith(Box<Node>, Box<Node>),
+    Sum(Box<Node>),
+    Type(Box<Node>),
     CmpEq(Box<Node>, Box<Node>),
     CmpNe(Box<Node>, Box<Node>),
     CmpLt(Box<Node>, Box<Node>),
@@ -74,6 +89,12 @@ pub fn into_node(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<Node> {
     }
     if let Ok(s) = obj.extract::<String>() {
         return Ok(Node::Field(s));
+    }
+    Ok(Node::Literal(PyObjectWrapper(obj.to_object(py))))
+}
+pub fn into_node_lit(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<Node> {
+    if let Ok(expr) = obj.extract::<PyRef<Expr>>() {
+        return Ok(expr.node.clone());
     }
     Ok(Node::Literal(PyObjectWrapper(obj.to_object(py))))
 }

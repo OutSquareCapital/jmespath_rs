@@ -1,4 +1,4 @@
-use crate::nodes::{into_node, Node, PyObjectWrapper};
+use crate::nodes::{into_node, into_node_lit, Node, PyObjectWrapper};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 #[pyclass(module = "jmespath_rs", name = "FilteredExpr")]
@@ -97,48 +97,48 @@ impl Expr {
     }
     pub fn eq(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::CmpEq(self.node.clone().into(), into_node(py, other)?.into()),
+            node: Node::CmpEq(self.node.clone().into(), into_node_lit(py, other)?.into()),
         })
     }
 
     pub fn ne(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::CmpNe(self.node.clone().into(), into_node(py, other)?.into()),
+            node: Node::CmpNe(self.node.clone().into(), into_node_lit(py, other)?.into()),
         })
     }
 
     pub fn lt(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::CmpLt(self.node.clone().into(), into_node(py, other)?.into()),
+            node: Node::CmpLt(self.node.clone().into(), into_node_lit(py, other)?.into()),
         })
     }
 
     pub fn le(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::CmpLe(self.node.clone().into(), into_node(py, other)?.into()),
+            node: Node::CmpLe(self.node.clone().into(), into_node_lit(py, other)?.into()),
         })
     }
 
     pub fn gt(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::CmpGt(self.node.clone().into(), into_node(py, other)?.into()),
+            node: Node::CmpGt(self.node.clone().into(), into_node_lit(py, other)?.into()),
         })
     }
 
     pub fn ge(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::CmpGe(self.node.clone().into(), into_node(py, other)?.into()),
+            node: Node::CmpGe(self.node.clone().into(), into_node_lit(py, other)?.into()),
         })
     }
     pub fn and_(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::And(self.node.clone().into(), into_node(py, other)?.into()),
+            node: Node::And(self.node.clone().into(), into_node_lit(py, other)?.into()),
         })
     }
 
     pub fn or_(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::Or(self.node.clone().into(), into_node(py, other)?.into()),
+            node: Node::Or(self.node.clone().into(), into_node_lit(py, other)?.into()),
         })
     }
 
@@ -225,7 +225,84 @@ impl Expr {
             },
         }
     }
+    pub fn abs(&self) -> Self {
+        Self {
+            node: Node::Abs(self.node.clone().into()),
+        }
+    }
 
+    pub fn avg(&self) -> Self {
+        Self {
+            node: Node::Avg(self.node.clone().into()),
+        }
+    }
+
+    pub fn ceil(&self) -> Self {
+        Self {
+            node: Node::Ceil(self.node.clone().into()),
+        }
+    }
+
+    pub fn floor(&self) -> Self {
+        Self {
+            node: Node::Floor(self.node.clone().into()),
+        }
+    }
+
+    pub fn max(&self) -> Self {
+        Self {
+            node: Node::Max(self.node.clone().into()),
+        }
+    }
+
+    pub fn min(&self) -> Self {
+        Self {
+            node: Node::Min(self.node.clone().into()),
+        }
+    }
+
+    pub fn reverse(&self) -> Self {
+        Self {
+            node: Node::Reverse(self.node.clone().into()),
+        }
+    }
+
+    pub fn sum(&self) -> Self {
+        Self {
+            node: Node::Sum(self.node.clone().into()),
+        }
+    }
+
+    #[pyo3(name = "type_")]
+    pub fn type_(&self) -> Self {
+        Self {
+            node: Node::Type(self.node.clone().into()),
+        }
+    }
+
+    pub fn contains(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+        Ok(Self {
+            node: Node::Contains(self.node.clone().into(), into_node_lit(py, other)?.into()),
+        })
+    }
+
+    pub fn ends_with(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+        Ok(Self {
+            node: Node::EndsWith(self.node.clone().into(), into_node_lit(py, other)?.into()),
+        })
+    }
+
+    pub fn starts_with(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+        Ok(Self {
+            node: Node::StartsWith(self.node.clone().into(), into_node_lit(py, other)?.into()),
+        })
+    }
+
+    pub fn join(&self, py: Python<'_>, glue: &Bound<'_, PyAny>) -> PyResult<Self> {
+        Ok(Self {
+            node: Node::Join(into_node_lit(py, glue)?.into(), self.node.clone().into()),
+        })
+    }
     pub fn __repr__(&self) -> String {
         format!("Expr({:?})", self.node)
     }
@@ -252,7 +329,7 @@ pub fn select_dict(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
     if let Some(dict) = kwargs {
         for (key, value) in dict {
             let key_str = key.extract::<String>()?;
-            let value_expr = into_node(key.py(), &value)?;
+            let value_expr = into_node_lit(key.py(), &value)?; // <-- Utiliser literal ici
             items.push((key_str, value_expr));
         }
     }
@@ -260,6 +337,19 @@ pub fn select_dict(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
     Ok(Expr {
         node: Node::MultiDict(items),
     })
+}
+#[pyfunction(signature = (*args))]
+pub fn merge(args: Vec<Expr>) -> Expr {
+    Expr {
+        node: Node::Merge(args.into_iter().map(|q| q.node).collect()),
+    }
+}
+
+#[pyfunction(signature = (*args))]
+pub fn not_null(args: Vec<Expr>) -> Expr {
+    Expr {
+        node: Node::NotNull(args.into_iter().map(|q| q.node).collect()),
+    }
 }
 #[pyfunction]
 pub fn lit(value: &Bound<'_, PyAny>) -> Expr {

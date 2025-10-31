@@ -24,7 +24,6 @@ class Case:
 
 
 CASES: list[Case] = [
-    # region: Core Expressions
     Case(
         "field.subfield.index.field",
         lambda: qd.field("metadata").a.b.index(0).c,
@@ -69,8 +68,6 @@ CASES: list[Case] = [
         .then(qd.field("name")),
         "users[?age >= `30` && active == `true`].name",
     ),
-    # endregion
-    # region: Multiselect
     Case(
         "multiselect-dict",
         lambda: qd.select_dict(
@@ -85,8 +82,6 @@ CASES: list[Case] = [
         ),
         "[users[0], products[0]]",
     ),
-    # endregion
-    # region: Comparisons and Logic
     Case(
         "numeric-comparison-eq",
         lambda: qd.field("metadata").j.index(1).eq(1),
@@ -140,5 +135,81 @@ CASES: list[Case] = [
         lambda: qd.field("metadata").d.values(),
         "values(metadata.d)",
     ),
-    # endregion
+    Case(
+        "abs-of-number",
+        lambda: qd.field("metadata").h.map_with(qd.identity().abs()),
+        "map(&abs(@), metadata.h)",
+    ),
+    Case(
+        "avg-of-numbers",
+        lambda: qd.field("metadata").h.avg(),
+        "avg(metadata.h)",
+    ),
+    Case(
+        "ceil-of-numbers",
+        lambda: qd.field("metadata").h.map_with(qd.identity().ceil()),
+        "map(&ceil(@), metadata.h)",
+    ),
+    Case(
+        "floor-of-numbers",
+        lambda: qd.field("metadata").h.map_with(qd.identity().floor()),
+        "map(&floor(@), metadata.h)",
+    ),
+    Case(
+        "max-of-numbers",
+        lambda: qd.field("metadata").h.max(),
+        "max(metadata.h)",
+    ),
+    Case(
+        "min-of-numbers",
+        lambda: qd.field("metadata").h.min(),
+        "min(metadata.h)",
+    ),
+    Case(
+        "reverse-array",
+        lambda: qd.field("metadata").h.reverse(),
+        "reverse(metadata.h)",
+    ),
+    Case(
+        "sum-of-numbers",
+        lambda: qd.field("metadata").h.sum(),
+        "sum(metadata.h)",
+    ),
+    Case(
+        "type-of-value",
+        lambda: qd.field("metadata").a.type_(),
+        "type(metadata.a)",
+    ),
+    Case(
+        "contains-in-array",
+        lambda: qd.field("metadata").h.contains(3),
+        "contains(metadata.h, `3`)",
+    ),
+    Case(
+        "ends-with-string",
+        lambda: qd.lit("hello").ends_with("lo"),
+        'ends_with(`"hello"`, `"lo"`)',
+    ),
+    Case(
+        "starts-with-string",
+        lambda: qd.lit("hello").starts_with("he"),
+        # CORRECTION: Remplacer ' par \"
+        'starts_with(`"hello"`, `"he"`)',
+    ),
+    Case(
+        "join-strings",
+        lambda: qd.field("metadata").m.join(", "),
+        "join(`, `, metadata.m)",
+    ),
+    Case(
+        "merge-objects",
+        lambda: qd.merge(qd.field("metadata").d, qd.field("metadata").l),
+        "merge(metadata.d, metadata.l)",
+    ),
+    Case(
+        "not-null-values",
+        lambda: qd.not_null(qd.lit(None), qd.lit("a"), qd.lit("b")),
+        # CORRECTION: Remplacer ' par \"
+        'not_null(null, `"a"`, `"b"`)',
+    ),
 ]

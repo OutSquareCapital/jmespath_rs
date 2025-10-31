@@ -80,6 +80,7 @@ def _metadata() -> dict[str, Any]:
         "j": [0, 1, 2],
         "k": [True, False],
         "l": {"m": {"n": {"o": 5}}},
+        "m": ["a", "b", "c"],
     }
 
 

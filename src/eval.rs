@@ -47,6 +47,21 @@ pub fn eval_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Resu
         Node::SortBy { base, key } => sort_like(py, value, base, key, SortKind::SortBy),
         Node::MinBy { base, key } => sort_like(py, value, base, key, SortKind::MinBy),
         Node::MaxBy { base, key } => sort_like(py, value, base, key, SortKind::MaxBy),
+        Node::Abs(x) => eval_abs(py, value, x),
+        Node::Avg(x) => eval_avg(py, value, x),
+        Node::Ceil(x) => eval_ceil_floor(py, value, x, true),
+        Node::Contains(a, b) => eval_contains(py, value, a, b),
+        Node::EndsWith(a, b) => eval_starts_ends_with(py, value, a, b, false),
+        Node::Floor(x) => eval_ceil_floor(py, value, x, false),
+        Node::Join(a, b) => eval_join(py, value, a, b),
+        Node::Max(x) => eval_min_max(py, value, x, true),
+        Node::Merge(items) => eval_merge(py, value, items),
+        Node::Min(x) => eval_min_max(py, value, x, false),
+        Node::NotNull(items) => eval_not_null(py, value, items),
+        Node::Reverse(x) => eval_reverse(py, value, x),
+        Node::StartsWith(a, b) => eval_starts_ends_with(py, value, a, b, true),
+        Node::Sum(x) => eval_sum(py, value, x),
+        Node::Type(x) => eval_type(py, value, x),
     }
 }
 fn eval_field<'py>(py: Python<'py>, value: &Bounded<'py>, name: &str) -> Result<'py> {
@@ -440,4 +455,255 @@ fn sort_like<'py>(
             }
         }
     }
+}
+fn eval_abs<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
+    let xv = eval_any(py, x, value)?;
+    if !is_number(&xv) {
+        return Ok(py.None().into_bound(py));
+    }
+    let f = xv.extract::<f64>()?;
+    Ok(f.abs().to_object(py).into_bound(py).into_any())
+}
+
+fn eval_avg<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
+    let xv = eval_any(py, x, value)?;
+    if !is_list(&xv) {
+        return Ok(py.None().into_bound(py));
+    }
+    let seq = xv.downcast::<PySequence>()?;
+    let len = seq.len()?;
+    if len == 0 {
+        return Ok(py.None().into_bound(py));
+    }
+    let mut sum = 0.0;
+    for i in 0..len {
+        let el = seq.get_item(i)?;
+        if !is_number(&el) {
+            return Ok(py.None().into_bound(py));
+        }
+        sum += el.extract::<f64>()?;
+    }
+    Ok((sum / (len as f64)).to_object(py).into_bound(py).into_any())
+}
+
+fn eval_ceil_floor<'py>(
+    py: Python<'py>,
+    value: &Bounded<'py>,
+    x: &Node,
+    is_ceil: bool,
+) -> Result<'py> {
+    let xv = eval_any(py, x, value)?;
+    if !is_number(&xv) {
+        return Ok(py.None().into_bound(py));
+    }
+    let f = xv.extract::<f64>()?;
+    let res = if is_ceil { f.ceil() } else { f.floor() };
+    Ok(res.to_object(py).into_bound(py).into_any())
+}
+
+fn eval_contains<'py>(py: Python<'py>, value: &Bounded<'py>, a: &Node, b: &Node) -> Result<'py> {
+    let subject = eval_any(py, a, value)?;
+    let search = eval_any(py, b, value)?;
+
+    let res = if let Ok(s) = subject.extract::<&str>() {
+        if let Ok(needle) = search.extract::<&str>() {
+            s.contains(needle)
+        } else {
+            false
+        }
+    } else if is_list(&subject) {
+        let seq = subject.downcast::<PySequence>()?;
+        let mut found = false;
+        for i in 0..seq.len()? {
+            if eq_semantics(&seq.get_item(i)?, &search)? {
+                found = true;
+                break;
+            }
+        }
+        found
+    } else {
+        false
+    };
+    Ok(res.to_object(py).into_bound(py).into_any())
+}
+
+fn eval_starts_ends_with<'py>(
+    py: Python<'py>,
+    value: &Bounded<'py>,
+    a: &Node,
+    b: &Node,
+    is_starts_with: bool,
+) -> Result<'py> {
+    let subject_node = eval_any(py, a, value)?;
+    let search_node = eval_any(py, b, value)?;
+
+    let res = if let (Ok(subject), Ok(search)) = (
+        subject_node.extract::<&str>(),
+        search_node.extract::<&str>(),
+    ) {
+        if is_starts_with {
+            subject.starts_with(search)
+        } else {
+            subject.ends_with(search)
+        }
+    } else {
+        false
+    };
+    Ok(res.to_object(py).into_bound(py).into_any())
+}
+
+fn eval_join<'py>(
+    py: Python<'py>,
+    value: &Bounded<'py>,
+    glue_node: &Node,
+    array_node: &Node,
+) -> Result<'py> {
+    let glue = eval_any(py, glue_node, value)?;
+    let array = eval_any(py, array_node, value)?;
+
+    if !is_list(&array) {
+        return Ok(py.None().into_bound(py));
+    }
+    let glue_str = if let Ok(s) = glue.extract::<&str>() {
+        s
+    } else {
+        return Ok(py.None().into_bound(py));
+    };
+
+    let seq = array.downcast::<PySequence>()?;
+    let len = seq.len()?;
+    let mut parts: Vec<String> = Vec::with_capacity(len);
+
+    for i in 0..len {
+        let el = seq.get_item(i)?;
+        if let Ok(s) = el.extract::<String>() {
+            parts.push(s);
+        } else {
+            return Ok(py.None().into_bound(py));
+        }
+    }
+    Ok(PyString::new_bound(py, &parts.join(glue_str)).into_any())
+}
+
+fn eval_min_max<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node, is_max: bool) -> Result<'py> {
+    let xv = eval_any(py, x, value)?;
+    if !is_list(&xv) {
+        return Ok(py.None().into_bound(py));
+    }
+    let seq = xv.downcast::<PySequence>()?;
+    let len = seq.len()?;
+    if len == 0 {
+        return Ok(py.None().into_bound(py));
+    }
+
+    let mut items: Vec<PyObject> = Vec::with_capacity(len);
+    let mut has_str = false;
+    let mut has_num = false;
+
+    for i in 0..len {
+        let el = seq.get_item(i)?;
+        if is_number(&el) {
+            has_num = true;
+        } else if el.is_instance_of::<PyUnicode>() {
+            has_str = true;
+        } else {
+            return Ok(py.None().into_bound(py));
+        }
+        if has_str && has_num {
+            return Ok(py.None().into_bound(py));
+        }
+        items.push(el.to_object(py));
+    }
+
+    let op = if is_max { CompareOp::Gt } else { CompareOp::Lt };
+    let mut best = items[0].clone_ref(py).into_bound(py);
+
+    for i in 1..len {
+        let current = items[i].clone_ref(py).into_bound(py);
+        if current.rich_compare(&best, op)?.is_truthy()? {
+            best = current;
+        }
+    }
+    Ok(best.into_any())
+}
+
+fn eval_merge<'py>(py: Python<'py>, value: &Bounded<'py>, items: &[Node]) -> Result<'py> {
+    let out = PyDict::new_bound(py);
+    for it in items {
+        let obj = eval_any(py, it, value)?;
+        if let Ok(dict) = obj.downcast::<PyDict>() {
+            out.update(dict.as_mapping())?;
+        } else {
+            return Ok(py.None().into_bound(py));
+        }
+    }
+    Ok(out.into_any())
+}
+fn eval_not_null<'py>(py: Python<'py>, value: &Bounded<'py>, items: &[Node]) -> Result<'py> {
+    for it in items {
+        let v = eval_any(py, it, value)?;
+        if !v.is_none() {
+            return Ok(v);
+        }
+    }
+    Ok(py.None().into_bound(py))
+}
+
+fn eval_reverse<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
+    let xv = eval_any(py, x, value)?;
+    if is_list(&xv) {
+        let seq = xv.downcast::<PySequence>()?;
+        let len = seq.len()?;
+        let out = PyList::empty_bound(py);
+        for i in (0..len).rev() {
+            out.append(seq.get_item(i)?)?;
+        }
+        return Ok(out.into_any());
+    }
+    if let Ok(s) = xv.extract::<&str>() {
+        let reversed: String = s.chars().rev().collect();
+        return Ok(PyString::new_bound(py, &reversed).into_any());
+    }
+    Ok(py.None().into_bound(py))
+}
+
+fn eval_sum<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
+    let xv = eval_any(py, x, value)?;
+    if !is_list(&xv) {
+        return Ok(py.None().into_bound(py));
+    }
+    let seq = xv.downcast::<PySequence>()?;
+    let len = seq.len()?;
+    if len == 0 {
+        return Ok(py.None().into_bound(py));
+    }
+    let mut sum = 0.0;
+    for i in 0..len {
+        let el = seq.get_item(i)?;
+        if !is_number(&el) {
+            return Ok(py.None().into_bound(py));
+        }
+        sum += el.extract::<f64>()?;
+    }
+    Ok(sum.to_object(py).into_bound(py).into_any())
+}
+
+fn eval_type<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
+    let xv = eval_any(py, x, value)?;
+    let type_str = if is_number(&xv) {
+        "number"
+    } else if xv.is_instance_of::<PyUnicode>() {
+        "string"
+    } else if xv.is_instance_of::<PyBool>() {
+        "boolean"
+    } else if is_list(&xv) {
+        "array"
+    } else if xv.is_instance_of::<PyDict>() {
+        "object"
+    } else if xv.is_none() {
+        "null"
+    } else {
+        return Ok(py.None().into_bound(py));
+    };
+    Ok(PyString::new_bound(py, type_str).into_any())
 }

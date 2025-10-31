@@ -17,5 +17,7 @@ fn jmespath_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(xp::select_dict, m)?)?;
     m.add_function(wrap_pyfunction!(xp::lit, m)?)?;
     m.add_function(wrap_pyfunction!(xp::identity, m)?)?;
+    m.add_function(wrap_pyfunction!(xp::merge, m)?)?;
+    m.add_function(wrap_pyfunction!(xp::not_null, m)?)?;
     Ok(())
 }

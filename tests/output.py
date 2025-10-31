@@ -38,7 +38,7 @@ def _write_markdown_table(df: pl.DataFrame, readme_path: Path):
         f.write(content)
 
 
-def format_results(results: list[BenchmarkResult], update_readme: bool = False) -> None:
+def format_results(results: list[BenchmarkResult], update_readme: bool) -> None:
     df = (
         pl.LazyFrame(results)
         .with_columns(_speedup())
