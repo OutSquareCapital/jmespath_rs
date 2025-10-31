@@ -190,11 +190,11 @@ impl Expr {
         }
     }
 
-    pub fn map_with(&self, build: Expr) -> Self {
+    pub fn map(&self, expr: Expr) -> Self {
         Self {
             node: Node::MapApply {
                 base: self.node.clone().into(),
-                key: build.node.into(),
+                key: expr.node.into(),
             },
         }
     }
