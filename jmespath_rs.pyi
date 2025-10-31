@@ -15,7 +15,6 @@ def field(name: str) -> Expr:
     Example:
     ```python
     >>> import jmespath_rs as jp
-    >>>
     >>> data = jp.DataJson({"foo": "bar"})
     >>> data.collect(jp.field("foo"))
     'bar'
@@ -36,7 +35,6 @@ def select_list(*exprs: Expr) -> Expr:
     Example:
     ```python
     >>> import jmespath_rs as jp
-    >>>
     >>> data = jp.DataJson({"foo": 1, "bar": 2})
     >>> query = jp.select_list(jp.identity().field("foo"), jp.identity().field("bar"), jp.lit(3))
     >>> data.collect(query)
@@ -59,7 +57,6 @@ def select_dict(**items: IntoExpr) -> Expr:
     Example:
     ```python
     >>> import jmespath_rs as jp
-    >>>
     >>> data = jp.DataJson({"foo": "bar", "baz": "qux"})
     >>> query = jp.select_dict(a=jp.identity().field("foo"), b="literal_string", c=jp.lit(10))
     >>> data.collect(query)
@@ -81,7 +78,6 @@ def lit(value: Any) -> Expr:
     Example:
     ```python
     >>> import jmespath_rs as jp
-    >>>
     >>> data = jp.DataJson({"age": 20})
     >>> # Compare the 'age' field to the literal value 18
     >>> query = jp.identity().field("age").gt(jp.lit(18))
@@ -167,13 +163,6 @@ class DataJson:
         Args:
             data: The Python data (e.g., dict, list) to query.
 
-        Example:
-        ```python
-        >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson({"foo": "bar"})
-        >>> data
-        DataJson
         ```
         """
         ...
@@ -210,7 +199,6 @@ class DataJson:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
         >>> data = jp.DataJson({"users": [{"name": "Alice"}, {"name": "Bob"}]})
         >>> data.collect(jp.identity().field("users").project("name"))
         ['Alice', 'Bob']
@@ -226,21 +214,18 @@ class Expr:
     This class *builds* a query, it does not execute it.
     """
 
-    def __init__(self) -> None:
+    def to_jmespath(self) -> str:
         """
-        Creates a new query pointing to the current node.
-
-        This is equivalent to `jp.identity()`.
-
-        Equivalent to JMESPath: `@`
+        Converts the Expr to its JMESPath string representation.
 
         Example:
         ```python
         >>> import jmespath_rs as jp
         >>>
-        >>> data = jp.DataJson("hello")
-        >>> data.collect(jp.Expr())
-        'hello'
+        >>> query = jp.identity().field("foo").project("bar")
+        >>> query.to_jmespath()
+        'foo[*].bar'
+
         ```
         """
         ...

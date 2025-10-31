@@ -31,7 +31,12 @@ impl Expr {
     pub fn new() -> Self {
         Self { node: Node::This }
     }
-
+    pub fn __repr__(&self) -> String {
+        format!("Expr('{}')", self.node)
+    }
+    pub fn to_jmespath(&self) -> String {
+        format!("{}", self.node)
+    }
     fn __getattr__(&self, name: String) -> Self {
         self.field(name)
     }
@@ -302,9 +307,6 @@ impl Expr {
         Ok(Self {
             node: Node::Join(into_node_lit(py, glue)?.into(), self.node.clone().into()),
         })
-    }
-    pub fn __repr__(&self) -> String {
-        format!("Expr({:?})", self.node)
     }
 }
 

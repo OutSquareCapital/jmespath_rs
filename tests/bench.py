@@ -1,73 +1,103 @@
 from __future__ import annotations
-import statistics
-import time
-from typing import Any
-from dataclasses import dataclass
-import jmespath
-import jmespath_rs as qd
-import math
-from tests.data import BenchmarkResult, DataBase, generate_db
+from tests.data import BenchmarkResult, generate_db
 from tests.cases import CASES
-from tests.output import format_results
+import polars as pl
+from pathlib import Path
+from enum import StrEnum, auto
+from typing import TypedDict
 
 DATA_SIZES: list[int] = [50, 200, 800]
 
 
-@dataclass(slots=True)
-class CheckResult:
-    got: Any
-    want: Any
-
-    def _check_equal(self) -> bool:
-        if isinstance(self.got, float) and isinstance(self.want, float):
-            return math.isclose(self.got, self.want)
-        else:
-            return self.got == self.want
-
-    def _on_error(self, jmes_query: str) -> str:
-        return f"Query: {jmes_query!r}\n  Got:   {self.got!r}\n  Want:  {self.want!r}"
-
-    def assert_equal(self, jmes_query: str) -> None:
-        assert self._check_equal(), self._on_error(jmes_query)
-        print(f"✔ {jmes_query}")
+class ResultRow(TypedDict):
+    query: str
+    with_50_runs: float
+    with_200_runs: float
+    with_800_runs: float
 
 
-@dataclass(slots=True, frozen=True)
-class Case:
-    qd_query: qd.Expr
-    jmes_query: str
+class Output(StrEnum):
+    MARKER = "<!-- BENCHMARK_RESULTS -->"
+    MARKER_END = "<!-- END_BENCHMARK_RESULTS -->"
 
-    def check(self, data: DataBase) -> None:
-        """Checks the query against the provided data."""
-        CheckResult(
-            qd.DataJson(data).collect(self.qd_query),
-            jmespath.search(self.jmes_query, data),
-        ).assert_equal(self.jmes_query)
 
-    def to_result(self, size: int, runs: int, data: DataBase) -> BenchmarkResult:
-        df = qd.DataJson(data)
-        compiled = jmespath.compile(self.jmes_query)
+def header() -> str:
+    return "| query | 50 | 200 | 800 |\n|---|---|---|---|\n"
 
-        timings_qd: list[float] = []
-        for _ in range(runs):
-            start = time.perf_counter()
-            df.collect(self.qd_query)
-            end = time.perf_counter()
-            timings_qd.append(end - start)
 
-        timings_jp: list[float] = []
-        for _ in range(runs):
-            start = time.perf_counter()
-            compiled.search(data)
-            end = time.perf_counter()
-            timings_jp.append(end - start)
+class Cols(StrEnum):
+    QUERY = auto()
+    SIZE = auto()
+    JMESPTH = auto()
+    QRYDICT = auto()
+    SPEEDUP = auto()
 
-        return BenchmarkResult(
-            size=size,
-            query=self.jmes_query,
-            qrydict=statistics.median(timings_qd),
-            jmespth=statistics.median(timings_jp),
+
+README = Path().joinpath("README").with_suffix(".md")
+
+
+def _speedup():
+    return (
+        pl.col(Cols.JMESPTH)
+        .truediv(pl.col(Cols.QRYDICT))
+        .round(2)
+        .over(Cols.QUERY, Cols.SIZE)
+        .alias(Cols.SPEEDUP)
+    )
+
+
+def _add_col(nb_runs: int) -> str:
+    return f" | with_{nb_runs}_runs |"
+
+
+def _add_row(row: ResultRow) -> str:
+    query = row["query"].replace("|", "\\|").replace("*", r"\*")
+    return f"| {query} | {row['with_50_runs']} | {row['with_200_runs']} | {row['with_800_runs']} |\n"
+
+
+def _write_markdown_table(df: pl.DataFrame, readme_path: Path):
+    md = header()
+    for row in df.iter_rows(named=True):
+        md += _add_row(row)
+
+    with open(readme_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    if Output.MARKER in content:
+        before = content.split(Output.MARKER, 1)[0]
+        after = (
+            content.split(Output.MARKER_END, 1)[-1]
+            if Output.MARKER_END in content
+            else ""
         )
+        content = before + Output.MARKER + "\n" + md + "\n" + Output.MARKER_END + after
+    else:
+        content += "\n" + Output.MARKER + "\n" + md + "\n" + Output.MARKER_END + "\n"
+
+    with open(readme_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+
+def format_results(results: list[BenchmarkResult], update_readme: bool) -> None:
+    df = (
+        pl.LazyFrame(results)
+        .with_columns(_speedup())
+        .collect()
+        .pivot(
+            on=Cols.SIZE,
+            index=Cols.QUERY,
+            values=Cols.SPEEDUP,
+            aggregate_function="median",
+        )
+        .lazy()
+        .with_columns(
+            pl.all().exclude(Cols.QUERY).name.suffix("_runs").name.prefix("with_")
+        )
+        .sort(Cols.QUERY)
+        .collect()
+    )
+    if update_readme:
+        df.pipe(_write_markdown_table, README)
 
 
 def _runs_nb(update_readme: bool) -> int:
