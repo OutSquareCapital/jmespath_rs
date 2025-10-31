@@ -227,21 +227,21 @@ class Expr:
         """
         ...
 
-    def sort_by(self, key: Expr) -> Self:
+    def sort_by(self, key: IntoExpr) -> Self:
         """
         Sorts a list using a key expression.
         (JMESPath syntax: sort_by(@, &key))
         """
         ...
 
-    def min_by(self, key: Expr) -> Self:
+    def min_by(self, key: IntoExpr) -> Self:
         """
         Finds the minimum element using a key expression.
         (JMESPath syntax: min_by(@, &key))
         """
         ...
 
-    def max_by(self, key: Expr) -> Self:
+    def max_by(self, key: IntoExpr) -> Self:
         """
         Finds the maximum element using a key expression.
         (JMESPath syntax: max_by(@, &key))

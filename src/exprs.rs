@@ -199,31 +199,31 @@ impl Expr {
         }
     }
 
-    pub fn sort_by(&self, key: Expr) -> Self {
-        Self {
+    pub fn sort_by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Self> {
+        Ok(Self {
             node: Node::SortBy {
                 base: self.node.clone().into(),
-                key: key.node.into(),
+                key: into_node(py, key)?.into(),
             },
-        }
+        })
     }
 
-    pub fn min_by(&self, key: Expr) -> Self {
-        Self {
+    pub fn min_by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Self> {
+        Ok(Self {
             node: Node::MinBy {
                 base: self.node.clone().into(),
-                key: key.node.into(),
+                key: into_node(py, key)?.into(),
             },
-        }
+        })
     }
 
-    pub fn max_by(&self, key: Expr) -> Self {
-        Self {
+    pub fn max_by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Self> {
+        Ok(Self {
             node: Node::MaxBy {
                 base: self.node.clone().into(),
-                key: key.node.into(),
+                key: into_node(py, key)?.into(),
             },
-        }
+        })
     }
     pub fn abs(&self) -> Self {
         Self {
