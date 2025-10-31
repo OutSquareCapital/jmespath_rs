@@ -94,4 +94,4 @@ def format_results(results: list[BenchmarkResult], update_readme: bool) -> None:
         .collect()
     )
     if update_readme:
-        _write_markdown_table(df, README)
+        df.pipe(_write_markdown_table, README)
