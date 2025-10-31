@@ -2,45 +2,49 @@ from __future__ import annotations
 import statistics
 import time
 from typing import Any
-
+from dataclasses import dataclass
 import jmespath
 import jmespath_rs as qd
 from tests.data import BenchmarkResult, DataBase
-from tests.cases import Case
-
-DATA_SIZES: list[int] = [500, 2000, 8000]
 
 
-def _qd_func(df: qd.DataJson, qry: qd.Expr):
-    return df.collect(qry)
+@dataclass(slots=True, frozen=True)
+class Case:
+    qd_query: qd.Expr
+    jmes_query: str
 
+    def check(self, data: dict[str, Any]) -> None:
+        """Checks the query against the provided data."""
 
-def _jsem_func(data: dict[str, Any], compiled: Any) -> Any:
-    return compiled.search(data)
+        got = qd.DataJson(data).collect(self.qd_query)
+        want = jmespath.search(self.jmes_query, data)
 
+        assert got == want, (
+            f"{self.jmes_query}: \n  Query: {self.jmes_query!r}\n  Got:   {got!r}\n  Want:  {want!r}"
+        )
+        print(f"✔ {self.jmes_query}")
 
-def add_case(case: Case, size: int, runs: int, data: DataBase) -> BenchmarkResult:
-    df = qd.DataJson(data)
-    qd_query_obj = case.build()
-    jp_search_func = jmespath.compile(case.jmes_query).search
+    def to_result(self, size: int, runs: int, data: DataBase) -> BenchmarkResult:
+        df = qd.DataJson(data)
+        compiled = jmespath.compile(self.jmes_query)
 
-    timings_qd: list[float] = []
-    for _ in range(runs):
-        start = time.perf_counter()
-        _qd_func(df, qd_query_obj)
-        end = time.perf_counter()
-        timings_qd.append(end - start)
+        timings_qd: list[float] = []
+        for _ in range(runs):
+            start = time.perf_counter()
+            df.collect(self.qd_query)
+            end = time.perf_counter()
+            timings_qd.append(end - start)
 
-    timings_jp: list[float] = []
-    for _ in range(runs):
-        start = time.perf_counter()
-        jp_search_func(data)
-        end = time.perf_counter()
-        timings_jp.append(end - start)
+        timings_jp: list[float] = []
+        for _ in range(runs):
+            start = time.perf_counter()
+            compiled.search(data)
+            end = time.perf_counter()
+            timings_jp.append(end - start)
 
-    return BenchmarkResult(
-        size=size,
-        case_name=case.name,
-        qrydict=statistics.median(timings_qd),
-        jmespth=statistics.median(timings_jp),
-    )
+        return BenchmarkResult(
+            size=size,
+            query=self.jmes_query,
+            qrydict=statistics.median(timings_qd),
+            jmespth=statistics.median(timings_jp),
+        )

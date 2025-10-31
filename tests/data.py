@@ -13,7 +13,7 @@ type JsonData = dict[str, Any]
 
 class BenchmarkResult(NamedTuple):
     size: int
-    case_name: str
+    query: str
     qrydict: float
     jmespth: float
 

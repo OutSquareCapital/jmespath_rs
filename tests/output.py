@@ -1,6 +1,33 @@
 import polars as pl
 from tests.data import BenchmarkResult
 from pathlib import Path
+from enum import StrEnum, auto
+from typing import TypedDict
+
+
+class ResultRow(TypedDict):
+    query: str
+    with_50_runs: float
+    with_200_runs: float
+    with_800_runs: float
+
+
+class Output(StrEnum):
+    MARKER = "<!-- BENCHMARK_RESULTS -->"
+    MARKER_END = "<!-- END_BENCHMARK_RESULTS -->"
+
+
+def header() -> str:
+    return "| query | 50 Runs | 200 Runs | 800 Runs |\n|---|---|---|---|\n"
+
+
+class Cols(StrEnum):
+    QUERY = auto()
+    SIZE = auto()
+    JMESPTH = auto()
+    QRYDICT = auto()
+    SPEEDUP = auto()
+
 
 CURRENT = Path(__file__).parent
 OUTPUT = CURRENT.joinpath("benchmark_results").with_suffix(".ndjson")
@@ -9,30 +36,41 @@ README = CURRENT.parent.joinpath("README").with_suffix(".md")
 
 def _speedup():
     return (
-        pl.col("jmespth")
-        .truediv(pl.col("qrydict"))
+        pl.col(Cols.JMESPTH)
+        .truediv(pl.col(Cols.QRYDICT))
         .round(2)
-        .over("case_name", "size")
-        .alias("avg_speedup_factor")
+        .over(Cols.QUERY, Cols.SIZE)
+        .alias(Cols.SPEEDUP)
     )
 
 
+def _add_col(nb_runs: int) -> str:
+    return f" | with_{nb_runs}_runs |"
+
+
+def _add_row(row: ResultRow) -> str:
+    query = row["query"].replace("|", "\\|").replace("*", "\\*")
+    return f"| {query} | {row['with_50_runs']} | {row['with_200_runs']} | {row['with_800_runs']} |\n"
+
+
 def _write_markdown_table(df: pl.DataFrame, readme_path: Path):
-    md = "| case_name | 500 | 2000 | 8000 |\n|---|---|---|---|\n"
+    md = header()
     for row in df.iter_rows(named=True):
-        md += f"| {row['case_name']} | {row['500']} | {row['2000']} | {row['8000']} |\n"
-    marker = "<!-- BENCHMARK_RESULTS -->"
-    marker_end = "<!-- END_BENCHMARK_RESULTS -->"
+        md += _add_row(row)
 
     with open(readme_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    if marker in content:
-        before = content.split(marker, 1)[0]
-        after = content.split(marker_end, 1)[-1] if marker_end in content else ""
-        content = before + marker + "\n" + md + "\n" + marker_end + after
+    if Output.MARKER in content:
+        before = content.split(Output.MARKER, 1)[0]
+        after = (
+            content.split(Output.MARKER_END, 1)[-1]
+            if Output.MARKER_END in content
+            else ""
+        )
+        content = before + Output.MARKER + "\n" + md + "\n" + Output.MARKER_END + after
     else:
-        content += "\n" + marker + "\n" + md + "\n" + marker_end + "\n"
+        content += "\n" + Output.MARKER + "\n" + md + "\n" + Output.MARKER_END + "\n"
 
     with open(readme_path, "w", encoding="utf-8") as f:
         f.write(content)
@@ -43,8 +81,16 @@ def format_results(results: list[BenchmarkResult], update_readme: bool) -> None:
         pl.LazyFrame(results)
         .with_columns(_speedup())
         .collect()
-        .pivot(on="size", index="case_name", values="avg_speedup_factor")
-        .sort("case_name")
+        .pivot(
+            on=Cols.SIZE,
+            index=Cols.QUERY,
+            values=Cols.SPEEDUP,
+            aggregate_function="median",
+        )
+        .with_columns(
+            pl.all().exclude(Cols.QUERY).name.suffix("_runs").name.prefix("with_")
+        )
+        .sort(Cols.QUERY)
     )
     df.write_ndjson(OUTPUT)
     if update_readme:
