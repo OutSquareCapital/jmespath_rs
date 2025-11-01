@@ -15,8 +15,8 @@ def field(name: str) -> Expr:
     Example:
     ```python
     >>> import jmespath_rs as jp
-    >>> data = jp.DataJson({"foo": "bar"})
-    >>> data.collect(jp.field("foo"))
+    >>> data = {"foo": "bar"}
+    >>> jp.field("foo").search(data)
     'bar'
 
     ```
@@ -35,9 +35,9 @@ def select_list(*exprs: Expr) -> Expr:
     Example:
     ```python
     >>> import jmespath_rs as jp
-    >>> data = jp.DataJson({"foo": 1, "bar": 2})
+    >>> data = {"foo": 1, "bar": 2}
     >>> query = jp.select_list(jp.identity().field("foo"), jp.identity().field("bar"), jp.lit(3))
-    >>> data.collect(query)
+    >>> query.search(data)
     [1, 2, 3]
 
     ```
@@ -57,9 +57,9 @@ def select_dict(**items: IntoExpr) -> Expr:
     Example:
     ```python
     >>> import jmespath_rs as jp
-    >>> data = jp.DataJson({"foo": "bar", "baz": "qux"})
+    >>> data = {"foo": "bar", "baz": "qux"}
     >>> query = jp.select_dict(a=jp.identity().field("foo"), b="literal_string", c=jp.lit(10))
-    >>> data.collect(query)
+    >>> query.search(data)
     {'a': 'bar', 'b': 'literal_string', 'c': 10}
 
     ```
@@ -78,10 +78,10 @@ def lit(value: Any) -> Expr:
     Example:
     ```python
     >>> import jmespath_rs as jp
-    >>> data = jp.DataJson({"age": 20})
+    >>> data = {"age": 20}
     >>> # Compare the 'age' field to the literal value 18
     >>> query = jp.identity().field("age").gt(jp.lit(18))
-    >>> data.collect(query)
+    >>> query.search(data)
     True
 
     ```
@@ -97,10 +97,9 @@ def identity() -> Expr:
     Example:
     ```python
     >>> import jmespath_rs as jp
-    >>>
-    >>> data = jp.DataJson([1, 2, 3])
+    >>> data = [1, 2, 3]
     >>> # The identity expression returns the current data
-    >>> data.collect(jp.identity())
+    >>> jp.identity().search(data)
     [1, 2, 3]
 
     ```
@@ -119,10 +118,9 @@ def merge(*exprs: Expr) -> Expr:
     Example:
     ```python
     >>> import jmespath_rs as jp
-    >>>
-    >>> data = jp.DataJson({"a": 1, "b": {"c": 2}})
+    >>> data = {"a": 1, "b": {"c": 2}}
     >>> query = jp.merge(jp.identity().field("b"), jp.select_dict(d=jp.lit(3)))
-    >>> data.collect(query)
+    >>> query.search(data)
     {'c': 2, 'd': 3}
 
     ```
@@ -141,78 +139,39 @@ def not_null(*exprs: Expr) -> Expr:
     Example:
     ```python
     >>> import jmespath_rs as jp
-    >>>
-    >>> data = jp.DataJson({"a": None, "b": "hello", "c": "world"})
+    >>> data = {"a": None, "b": "hello", "c": "world"}
     >>> query = jp.not_null(jp.field("a"), jp.field("b"), jp.field("c"))
-    >>> data.collect(query)
+    >>> query.search(data)
     'hello'
 
     ```
     """
     ...
 
-class DataJson:
-    """
-    A data context that holds pre-parsed JSON data for querying.
-    """
-
-    def __init__(self, data: Any) -> None:
-        """
-        Initializes the context with Python data.
-
-        Args:
-            data: The Python data (e.g., dict, list) to query.
-
-        ```
-        """
-        ...
-
-    def query(self, query: Expr) -> Self:
-        """
-        Executes a Expr expression against the internal data and returns a new DataJson.
-
-        This allows for chaining queries on the resulting data.
-
-        Args:
-            query: The `Expr` object representing the JMESPath query.
-
-        Example:
-        ```python
-        >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson({"users": [{"name": "Alice"}, {"name": "Bob"}]})
-        >>> result_data = data.query(jp.identity().field("users"))
-        >>> result_data.collect(jp.identity().index(0))
-        {'name': 'Alice'}
-        ```
-        """
-        ...
-
-    def collect(self, query: Expr) -> Any:
-        """
-        Executes a Expr expression against the internal data.
-        Returns the result as a Python object.
-
-        Args:
-            query: The `Expr` object representing the JMESPath query.
-
-        Example:
-        ```python
-        >>> import jmespath_rs as jp
-        >>> data = jp.DataJson({"users": [{"name": "Alice"}, {"name": "Bob"}]})
-        >>> data.collect(jp.identity().field("users").project("name"))
-        ['Alice', 'Bob']
-        ```
-        """
-        ...
-
-    def __repr__(self) -> str: ...
-
 class Expr:
     """
     A chainable JMESPath query builder.
     This class *builds* a query, it does not execute it.
     """
+
+    def search(self, data: Any) -> Any:
+        """
+        Executes the JMESPath query against the provided data.
+
+        Args:
+            data: The input data to query.
+
+        Example:
+        ```python
+        >>> import jmespath_rs as jp
+        >>> data = {"foo": [1, 2, 3]}
+        >>> query = jp.identity().field("foo").project(jp.identity().gt(jp.lit(1)))
+        >>> query.search(data)
+        [False, True, True]
+
+        ```
+        """
+        ...
 
     def to_jmespath(self) -> str:
         """
@@ -221,7 +180,6 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
         >>> query = jp.identity().field("foo").project("bar")
         >>> query.to_jmespath()
         'foo[*].bar'
@@ -242,9 +200,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson({"foo": "bar"})
-        >>> data.collect(jp.identity().field("foo"))
+        >>> data = {"foo": "bar"}
+        >>> jp.identity().field("foo").search(data)
         'bar'
         ```
         """
@@ -264,9 +221,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson({"foo": "bar"})
-        >>> data.collect(jp.identity().foo)
+        >>> data = {"foo": "bar"}
+        >>> jp.identity().foo.search(data)
         'bar'
         ```
         """
@@ -284,11 +240,10 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson(["a", "b", "c"])
-        >>> data.collect(jp.identity().index(1))
+        >>> data = ["a", "b", "c"]
+        >>> jp.identity().index(1).search(data)
         'b'
-        >>> data.collect(jp.identity().index(-1))
+        >>> jp.identity().index(-1).search(data)
         'c'
         ```
         """
@@ -313,11 +268,10 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson([0, 1, 2, 3, 4, 5])
-        >>> data.collect(jp.identity().slice(1, 4))
+        >>> data = [0, 1, 2, 3, 4, 5]
+        >>> jp.identity().slice(1, 4).search(data)
         [1, 2, 3]
-        >>> data.collect(jp.identity().slice(step=2))
+        >>> jp.identity().slice(step=2).search(data)
         [0, 2, 4]
         ```
         """
@@ -335,9 +289,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson([{"a": 1}, {"a": 2}])
-        >>> data.collect(jp.identity().project("a"))
+        >>> data = [{"a": 1}, {"a": 2}]
+        >>> jp.identity().project("a").search(data)
         [1, 2]
         ```
         """
@@ -355,8 +308,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> jp.DataJson({"a": {"id": 1}, "b": {"id": 2}}).collect(jp.identity().vproject("id"))
+        >>> data = {"a": {"id": 1}, "b": {"id": 2}}
+        >>> jp.identity().vproject("id").search(data)
         [1, 2]
         ```
         """
@@ -371,9 +324,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson([[1, 2], [3, 4]])
-        >>> data.collect(jp.identity().flatten())
+        >>> data = [[1, 2], [3, 4]]
+        >>> jp.identity().flatten().search(data)
         [1, 2, 3, 4]
         ```
         """
@@ -391,10 +343,9 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson([{"a": 1}, {"a": 2}, {"a": 3}])
+        >>> data = [{"a": 1}, {"a": 2}, {"a": 3}]
         >>> query = jp.identity().filter(jp.identity().a.gt(jp.lit(1))).then("a")
-        >>> data.collect(query)
+        >>> query.search(data)
         [2, 3]
         ```
         """
@@ -412,9 +363,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson("foo")
-        >>> data.collect(jp.identity().eq("foo"))
+        >>> data = "foo"
+        >>> jp.identity().eq("foo").search(data)
         True
         ```
         """
@@ -432,9 +382,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson("foo")
-        >>> data.collect(jp.identity().ne("bar"))
+        >>> data = "foo"
+        >>> jp.identity().ne("bar").search(data)
         True
         ```
         """
@@ -452,9 +401,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson(10)
-        >>> data.collect(jp.identity().gt(5))
+        >>> data = 10
+        >>> jp.identity().gt(5).search(data)
         True
         ```
         """
@@ -472,9 +420,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson(10)
-        >>> data.collect(jp.identity().ge(10))
+        >>> data = 10
+        >>> jp.identity().ge(10).search(data)
         True
         ```
         """
@@ -492,9 +439,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson(10)
-        >>> data.collect(jp.identity().lt(20))
+        >>> data = 10
+        >>> jp.identity().lt(20).search(data)
         True
         ```
         """
@@ -512,9 +458,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson(10)
-        >>> data.collect(jp.identity().le(10))
+        >>> data = 10
+        >>> jp.identity().le(10).search(data)
         True
         ```
         """
@@ -532,9 +477,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson(True)
-        >>> data.collect(jp.identity().and_(False))
+        >>> data = True
+        >>> jp.identity().and_(False).search(data)
         False
         ```
         """
@@ -552,9 +496,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson(True)
-        >>> data.collect(jp.identity().or_(False))
+        >>> data = True
+        >>> jp.identity().or_(False).search(data)
         True
         ```
         """
@@ -569,9 +512,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson(False)
-        >>> data.collect(jp.identity().not_())
+        >>> data = False
+        >>> jp.identity().not_().search(data)
         True
         ```
         """
@@ -589,10 +531,9 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson({"foo": [3, 1, 2]})
+        >>> data = {"foo": [3, 1, 2]}
         >>> query = jp.identity().foo.pipe(jp.identity().sort())
-        >>> data.collect(query)
+        >>> query.search(data)
         [1, 2, 3]
         ```
         """
@@ -607,9 +548,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson(-10.5)
-        >>> data.collect(jp.identity().abs())
+        >>> data = -10.5
+        >>> jp.identity().abs().search(data)
         10.5
         ```
         """
@@ -624,9 +564,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson([1, 2, 3, 4])
-        >>> data.collect(jp.identity().avg())
+        >>> data = [1, 2, 3, 4]
+        >>> jp.identity().avg().search(data)
         2.5
         ```
         """
@@ -641,9 +580,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson(1.2)
-        >>> data.collect(jp.identity().ceil())
+        >>> data = 1.2
+        >>> jp.identity().ceil().search(data)
         2.0
         ```
         """
@@ -658,9 +596,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson(1.8)
-        >>> data.collect(jp.identity().floor())
+        >>> data = 1.8
+        >>> jp.identity().floor().search(data)
         1.0
         ```
         """
@@ -675,9 +612,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson([1, 5, 2, 4])
-        >>> data.collect(jp.identity().max())
+        >>> data = [1, 5, 2, 4]
+        >>> jp.identity().max().search(data)
         5
         ```
         """
@@ -692,9 +628,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson([1, 5, 2, 4])
-        >>> data.collect(jp.identity().min())
+        >>> data = [1, 5, 2, 4]
+        >>> jp.identity().min().search(data)
         1
         ```
         """
@@ -709,10 +644,9 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> jp.DataJson([1, 2, 3]).collect(jp.identity().reverse())
+        >>> jp.identity().reverse().search([1, 2, 3])
         [3, 2, 1]
-        >>> jp.DataJson("abc").collect(jp.identity().reverse())
+        >>> jp.identity().reverse().search("abc")
         'cba'
         ```
         """
@@ -727,8 +661,7 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> jp.DataJson([1, 2, 3]).collect(jp.identity().sum())
+        >>> jp.identity().sum().search([1, 2, 3])
         6.0
         ```
         """
@@ -743,10 +676,9 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> jp.DataJson({"a": 1}).collect(jp.identity().dtype())
+        >>> jp.identity().dtype().search({"a": 1})
         'object'
-        >>> jp.DataJson(123).collect(jp.identity().dtype())
+        >>> jp.identity().dtype().search(123)
         'number'
         ```
         """
@@ -764,10 +696,9 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> jp.DataJson("hello").collect(jp.identity().contains("ell"))
+        >>> jp.identity().contains("ell").search("hello")
         True
-        >>> jp.DataJson([1, 2, 3]).collect(jp.identity().contains(2))
+        >>> jp.identity().contains(2).search([1, 2, 3])
         True
         ```
         """
@@ -785,9 +716,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson("hello")
-        >>> data.collect(jp.identity().ends_with("llo"))
+        >>> data = "hello"
+        >>> jp.identity().ends_with("llo").search(data)
         True
         ```
         """
@@ -805,9 +735,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson("hello")
-        >>> data.collect(jp.identity().starts_with("he"))
+        >>> data = "hello"
+        >>> jp.identity().starts_with("he").search(data)
         True
         ```
         """
@@ -825,9 +754,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson(["a", "b", "c"])
-        >>> data.collect(jp.identity().join("-"))
+        >>> data = ["a", "b", "c"]
+        >>> jp.identity().join("-").search(data)
         'a-b-c'
         ```
         """
@@ -842,9 +770,9 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>> jp.DataJson([1, 2, 3]).collect(jp.identity().length())
+        >>> jp.identity().length().search([1, 2, 3])
         3
-        >>> jp.DataJson("hello").collect(jp.identity().length())
+        >>> jp.identity().length().search("hello")
         5
         ```
         """
@@ -859,9 +787,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson([3, 1, 2])
-        >>> data.collect(jp.identity().sort())
+        >>> data = [3, 1, 2]
+        >>> jp.identity().sort().search(data)
         [1, 2, 3]
         ```
         """
@@ -876,9 +803,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson({"a": 1, "b": 2})
-        >>> sorted(data.collect(jp.identity().keys()))
+        >>> data = {"a": 1, "b": 2}
+        >>> sorted(jp.identity().keys().search(data))
         ['a', 'b']
         ```
         """
@@ -893,9 +819,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson({"a": 1, "b": 2})
-        >>> sorted(data.collect(jp.identity().values()))
+        >>> data = {"a": 1, "b": 2}
+        >>> sorted(jp.identity().values().search(data))
         [1, 2]
         ```
         """
@@ -910,9 +835,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson({"a": 1})
-        >>> data.collect(jp.identity().to_string())
+        >>> data = {"a": 1}
+        >>> jp.identity().to_string().search(data)
         '{"a":1}'
         ```
         """
@@ -927,9 +851,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson("1.23")
-        >>> data.collect(jp.identity().to_number())
+        >>> data = "1.23"
+        >>> jp.identity().to_number().search(data)
         1.23
         ```
         """
@@ -944,10 +867,9 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> jp.DataJson("foo").collect(jp.identity().to_array())
+        >>> jp.identity().to_array().search("foo")
         ['foo']
-        >>> jp.DataJson([1, 2]).collect(jp.identity().to_array())
+        >>> jp.identity().to_array().search([1, 2])
         [1, 2]
         ```
         """
@@ -965,9 +887,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson([{"a": 1}, {"a": 2}, {"a": 3}])
-        >>> data.collect(jp.identity().map("a"))
+        >>> data = [{"a": 1}, {"a": 2}, {"a": 3}]
+        >>> jp.identity().map("a").search(data)
         [1, 2, 3]
         ```
         """
@@ -985,9 +906,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson([{"a": 3}, {"a": 1}, {"a": 2}])
-        >>> data.collect(jp.identity().sort_by("a"))
+        >>> data = [{"a": 3}, {"a": 1}, {"a": 2}]
+        >>> jp.identity().sort_by("a").search(data)
         [{'a': 1}, {'a': 2}, {'a': 3}]
         ```
         """
@@ -1005,9 +925,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson([{"a": 3}, {"a": 1}, {"a": 2}])
-        >>> data.collect(jp.identity().min_by("a"))
+        >>> data = [{"a": 3}, {"a": 1}, {"a": 2}]
+        >>> jp.identity().min_by("a").search(data)
         {'a': 1}
         ```
         """
@@ -1025,9 +944,8 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson([{"a": 3}, {"a": 1}, {"a": 2}])
-        >>> data.collect(jp.identity().max_by("a"))
+        >>> data = [{"a": 3}, {"a": 1}, {"a": 2}]
+        >>> jp.identity().max_by("a").search(data)
         {'a': 3}
         ```
         """
@@ -1053,15 +971,14 @@ class FilteredExpr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson([
+        >>> data = [
         ...     {"name": "Alice", "age": 30},
         ...     {"name": "Bob", "age": 20}
-        ... ])
+        ... ]
         >>> # Find names of people older than 25
         >>> cond = jp.identity().age.gt(jp.lit(25))
         >>> query = jp.identity().filter(cond).then("name")
-        >>> data.collect(query)
+        >>> query.search(data)
         ['Alice']
         ```
         """

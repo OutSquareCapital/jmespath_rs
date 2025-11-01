@@ -1,3 +1,4 @@
+use crate::eval;
 use crate::nodes::{into_node, into_node_lit, Node, PyObjectWrapper};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -305,6 +306,9 @@ impl Expr {
         Ok(Self {
             node: Node::Join(into_node_lit(py, glue)?.into(), self.node.clone().into()),
         })
+    }
+    pub fn search(&self, py: Python<'_>, data: PyObject) -> PyResult<PyObject> {
+        eval::eval_any(py, &self.node, data.bind(py)).map(|result| result.unbind())
     }
 }
 

@@ -35,18 +35,17 @@ class Case:
     def check(self, data: DataBase) -> None:
         """Checks the query against the provided data."""
         CheckResult(
-            qd.DataJson(data).collect(self.qd_query),
+            self.qd_query.search(data),
             jmespath.search(self.qd_query.to_jmespath(), data),
         ).assert_equal(self.qd_query.to_jmespath())
 
     def to_result(self, size: int, runs: int, data: DataBase) -> BenchmarkResult:
-        df = qd.DataJson(data)
         compiled = jmespath.compile(self.qd_query.to_jmespath())
 
         timings_qd: list[float] = []
         for _ in range(runs):
             start = time.perf_counter()
-            df.collect(self.qd_query)
+            self.qd_query.search(data)
             end = time.perf_counter()
             timings_qd.append(end - start)
 
