@@ -143,7 +143,7 @@ def not_null(*exprs: Expr) -> Expr:
     >>> import jmespath_rs as jp
     >>>
     >>> data = jp.DataJson({"a": None, "b": "hello", "c": "world"})
-    >>> query = jp.not_null(jp.identity().field("a"), jp.identity().field("b"), jp.identity().field("c"))
+    >>> query = jp.not_null(jp.field("a"), jp.field("b"), jp.field("c"))
     >>> data.collect(query)
     'hello'
 
@@ -728,14 +728,13 @@ class Expr:
         ```python
         >>> import jmespath_rs as jp
         >>>
-        >>> data = jp.DataJson([1, 2, 3])
-        >>> data.collect(jp.identity().sum())
+        >>> jp.DataJson([1, 2, 3]).collect(jp.identity().sum())
         6.0
         ```
         """
         ...
 
-    def type_(self) -> Self:
+    def dtype(self) -> Self:
         """
         Returns the JMESPath type name of the data.
 
@@ -745,9 +744,9 @@ class Expr:
         ```python
         >>> import jmespath_rs as jp
         >>>
-        >>> jp.DataJson({"a": 1}).collect(jp.identity().type_())
+        >>> jp.DataJson({"a": 1}).collect(jp.identity().dtype())
         'object'
-        >>> jp.DataJson(123).collect(jp.identity().type_())
+        >>> jp.DataJson(123).collect(jp.identity().dtype())
         'number'
         ```
         """

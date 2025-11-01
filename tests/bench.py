@@ -14,6 +14,7 @@ class ResultRow(TypedDict):
     with_50_runs: float
     with_200_runs: float
     with_800_runs: float
+    average_speedup: float
 
 
 class Output(StrEnum):
@@ -22,7 +23,9 @@ class Output(StrEnum):
 
 
 def header() -> str:
-    return "| query | 50 | 200 | 800 |\n|---|---|---|---|\n"
+    return (
+        f"| query | 50 | 200 | 800 | {Cols.AVERAGE_SPEEDUP} |\n|---|---|---|---|---|\n"
+    )
 
 
 class Cols(StrEnum):
@@ -31,6 +34,7 @@ class Cols(StrEnum):
     JMESPTH = auto()
     QRYDICT = auto()
     SPEEDUP = auto()
+    AVERAGE_SPEEDUP = auto()
 
 
 README = Path().joinpath("README").with_suffix(".md")
@@ -52,7 +56,7 @@ def _add_col(nb_runs: int) -> str:
 
 def _add_row(row: ResultRow) -> str:
     query = row["query"].replace("|", "\\|").replace("*", r"\*")
-    return f"| {query} | {row['with_50_runs']} | {row['with_200_runs']} | {row['with_800_runs']} |\n"
+    return f"| {query} | {row['with_50_runs']} | {row['with_200_runs']} | {row['with_800_runs']} | {row['average_speedup']} |\n"
 
 
 def _write_markdown_table(df: pl.DataFrame, readme_path: Path):
@@ -91,9 +95,12 @@ def format_results(results: list[BenchmarkResult], update_readme: bool) -> None:
         )
         .lazy()
         .with_columns(
-            pl.all().exclude(Cols.QUERY).name.suffix("_runs").name.prefix("with_")
+            pl.mean_horizontal(pl.all().exclude(Cols.QUERY))
+            .round(2)
+            .alias(Cols.AVERAGE_SPEEDUP),
+            pl.all().exclude(Cols.QUERY).name.suffix("_runs").name.prefix("with_"),
         )
-        .sort(Cols.QUERY)
+        .sort(Cols.AVERAGE_SPEEDUP, descending=True)
         .collect()
     )
     if update_readme:

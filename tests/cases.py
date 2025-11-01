@@ -127,7 +127,7 @@ def build_cases() -> list[Case]:
         .add(qd.field("products").project("price").min())
         .add(qd.field("products").project("price").reverse())
         .add(qd.field("products").project("price").sum())
-        .add(qd.field("users").index(0).type_())
+        .add(qd.field("users").index(0).dtype())
         .add(qd.field("products").index(0).tags.contains("electronics"))
         .add(qd.lit("hello").ends_with("lo"))
         .add(qd.lit("hello").starts_with("he"))
