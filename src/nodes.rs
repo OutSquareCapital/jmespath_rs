@@ -161,8 +161,8 @@ impl fmt::Display for Node {
                     .collect();
                 write!(f, "{{{}}}", inner.join(", "))
             }
-            Node::ProjectArray { base, rhs } => write!(f, "{}[].{}", base, rhs),
-            Node::ProjectObject { base, rhs } => write!(f, "{}[].*.{}", base, rhs),
+            Node::ProjectArray { base, rhs } => write!(f, "{}[*].{}", base, rhs),
+            Node::ProjectObject { base, rhs } => write!(f, "{}.*.{}", base, rhs),
 
             Node::Flatten(inner) => write!(f, "{}[]", inner),
             Node::FilterProjection { base, then, cond } => {

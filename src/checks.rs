@@ -10,7 +10,10 @@ pub fn is_list(v: &Bound<'_, PyAny>) -> bool {
 pub fn is_sized(v: &Bound<'_, PyAny>) -> bool {
     unsafe { pyo3::ffi::PySequence_Check(v.as_ptr()) == 1 }
 }
-
+#[inline]
+pub fn is_object(v: &Bound<'_, PyAny>) -> bool {
+    v.is_instance_of::<PyDict>()
+}
 #[inline]
 pub fn is_number(v: &Bound<'_, PyAny>) -> bool {
     (v.is_instance_of::<PyFloat>() || v.is_instance_of::<PyLong>()) && !v.is_instance_of::<PyBool>()
@@ -36,7 +39,7 @@ pub fn is_empty(v: &Bound<'_, PyAny>) -> PyResult<bool> {
         let n = unsafe { pyo3::ffi::PySequence_Size(v.as_ptr()) };
         return Ok(n == 0);
     }
-    if v.is_instance_of::<PyDict>() && v.downcast::<PyDict>()?.len() == 0 {
+    if is_object(v) && v.downcast::<PyDict>()?.len() == 0 {
         return Ok(true);
     }
     Ok(false)

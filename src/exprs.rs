@@ -9,14 +9,14 @@ pub struct FilteredExpr {
 
 #[pymethods]
 impl FilteredExpr {
-    pub fn then(&self, then: &Expr) -> Expr {
-        Expr {
+    pub fn then(&self, py: Python<'_>, then: &Bound<'_, PyAny>) -> PyResult<Expr> {
+        Ok(Expr {
             node: Node::FilterProjection {
                 base: self.base.clone().into(),
-                then: then.node.clone().into(),
+                then: into_node(py, then)?.into(),
                 cond: self.cond.clone().into(),
             },
-        }
+        })
     }
 }
 #[pyclass(module = "jmespath_rs", name = "Expr")]
@@ -70,21 +70,19 @@ impl Expr {
     }
 
     pub fn project(&self, py: Python<'_>, rhs: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let rhs_node = into_node(py, rhs)?;
         Ok(Self {
             node: Node::ProjectArray {
                 base: self.node.clone().into(),
-                rhs: rhs_node.into(),
+                rhs: into_node(py, rhs)?.into(),
             },
         })
     }
 
     pub fn vproject(&self, py: Python<'_>, rhs: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let rhs_node = into_node(py, rhs)?;
         Ok(Self {
             node: Node::ProjectObject {
                 base: self.node.clone().into(),
-                rhs: rhs_node.into(),
+                rhs: into_node(py, rhs)?.into(),
             },
         })
     }
@@ -195,13 +193,13 @@ impl Expr {
         }
     }
 
-    pub fn map(&self, expr: Expr) -> Self {
-        Self {
+    pub fn map(&self, py: Python<'_>, expr: &Bound<'_, PyAny>) -> PyResult<Self> {
+        Ok(Self {
             node: Node::MapApply {
                 base: self.node.clone().into(),
-                key: expr.node.into(),
+                key: into_node(py, expr)?.into(),
             },
-        }
+        })
     }
 
     pub fn sort_by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Self> {
@@ -330,9 +328,7 @@ pub fn select_dict(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
 
     if let Some(dict) = kwargs {
         for (key, value) in dict {
-            let key_str = key.extract::<String>()?;
-            let value_expr = into_node_lit(key.py(), &value)?; // <-- Utiliser literal ici
-            items.push((key_str, value_expr));
+            items.push((key.extract::<String>()?, into_node_lit(key.py(), &value)?));
         }
     }
 

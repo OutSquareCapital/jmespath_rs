@@ -100,7 +100,7 @@ def identity() -> Expr:
     >>>
     >>> data = jp.DataJson([1, 2, 3])
     >>> # The identity expression returns the current data
-    >>> data.collect(_())
+    >>> data.collect(jp.identity())
     [1, 2, 3]
 
     ```
@@ -356,8 +356,7 @@ class Expr:
         ```python
         >>> import jmespath_rs as jp
         >>>
-        >>> data = jp.DataJson({"a": {"id": 1}, "b": {"id": 2}})
-        >>> data.collect(jp.identity().vproject("id"))
+        >>> jp.DataJson({"a": {"id": 1}, "b": {"id": 2}}).collect(jp.identity().vproject("id"))
         [1, 2]
         ```
         """
@@ -394,7 +393,7 @@ class Expr:
         >>> import jmespath_rs as jp
         >>>
         >>> data = jp.DataJson([{"a": 1}, {"a": 2}, {"a": 3}])
-        >>> query = jp.identity().filter(jp.identity().a.gt(jp.lit(1))).project("a")
+        >>> query = jp.identity().filter(jp.identity().a.gt(jp.lit(1))).then("a")
         >>> data.collect(query)
         [2, 3]
         ```
@@ -711,11 +710,9 @@ class Expr:
         ```python
         >>> import jmespath_rs as jp
         >>>
-        >>> data = jp.DataJson([1, 2, 3])
-        >>> data.collect(jp.identity().reverse())
+        >>> jp.DataJson([1, 2, 3]).collect(jp.identity().reverse())
         [3, 2, 1]
-        >>> data = jp.DataJson("abc")
-        >>> data.collect(jp.identity().reverse())
+        >>> jp.DataJson("abc").collect(jp.identity().reverse())
         'cba'
         ```
         """
@@ -748,11 +745,9 @@ class Expr:
         ```python
         >>> import jmespath_rs as jp
         >>>
-        >>> data = jp.DataJson({"a": 1})
-        >>> data.collect(jp.identity().type_())
+        >>> jp.DataJson({"a": 1}).collect(jp.identity().type_())
         'object'
-        >>> data = jp.DataJson(123)
-        >>> data.collect(jp.identity().type_())
+        >>> jp.DataJson(123).collect(jp.identity().type_())
         'number'
         ```
         """
@@ -771,11 +766,9 @@ class Expr:
         ```python
         >>> import jmespath_rs as jp
         >>>
-        >>> data = jp.DataJson("hello")
-        >>> data.collect(jp.identity().contains("ell"))
+        >>> jp.DataJson("hello").collect(jp.identity().contains("ell"))
         True
-        >>> data = jp.DataJson([1, 2, 3])
-        >>> data.collect(jp.identity().contains(2))
+        >>> jp.DataJson([1, 2, 3]).collect(jp.identity().contains(2))
         True
         ```
         """
@@ -850,12 +843,9 @@ class Expr:
         Example:
         ```python
         >>> import jmespath_rs as jp
-        >>>
-        >>> data = jp.DataJson([1, 2, 3])
-        >>> data.collect(jp.identity().length())
+        >>> jp.DataJson([1, 2, 3]).collect(jp.identity().length())
         3
-        >>> data = jp.DataJson("hello")
-        >>> data.collect(jp.identity().length())
+        >>> jp.DataJson("hello").collect(jp.identity().length())
         5
         ```
         """
@@ -956,17 +946,15 @@ class Expr:
         ```python
         >>> import jmespath_rs as jp
         >>>
-        >>> data = jp.DataJson("foo")
-        >>> data.collect(jp.identity().to_array())
+        >>> jp.DataJson("foo").collect(jp.identity().to_array())
         ['foo']
-        >>> data = jp.DataJson([1, 2])
-        >>> data.collect(jp.identity().to_array())
+        >>> jp.DataJson([1, 2]).collect(jp.identity().to_array())
         [1, 2]
         ```
         """
         ...
 
-    def map(self, expr: Expr) -> Self:
+    def map(self, expr: IntoExpr) -> Self:
         """
         Applies an expression to each element in a list.
 
@@ -979,11 +967,9 @@ class Expr:
         ```python
         >>> import jmespath_rs as jp
         >>>
-        >>> data = jp.DataJson([1, 2, 3])
-        >>> # Note: In this builder, &expr is represented by passing
-        >>> # an expression relative to the *element*, not the root.
-        >>> data.collect(jp.identity().map(jp.identity().add(jp.lit(1))))
-        [2, 3, 4]
+        >>> data = jp.DataJson([{"a": 1}, {"a": 2}, {"a": 3}])
+        >>> data.collect(jp.identity().map("a"))
+        [1, 2, 3]
         ```
         """
         ...

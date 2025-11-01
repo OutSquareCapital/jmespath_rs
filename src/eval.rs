@@ -71,7 +71,7 @@ fn eval_literal<'py>(py: Python<'py>, obj: &PyObjectWrapper) -> Result<'py> {
 }
 
 fn eval_field<'py>(py: Python<'py>, value: &Bounded<'py>, name: &str) -> Result<'py> {
-    if value.is_instance_of::<PyDict>() {
+    if is_object(value) {
         let d = value.downcast::<PyDict>()?;
         Ok(d.get_item(name)?
             .unwrap_or_else(|| py.None().into_bound(py)))
@@ -167,37 +167,19 @@ fn eval_project_object<'py>(
     rhs: &Node,
 ) -> Result<'py> {
     let basev = eval_any(py, base, value)?;
-    if !is_list(&basev) {
+    if !is_object(&basev) {
         return Ok(py.None().into_bound(py));
     }
 
-    let seq = basev.downcast::<PySequence>()?;
-    let outer_list = PyList::empty_bound(py);
+    let out = PyList::empty_bound(py);
 
-    for i in 0..seq.len()? {
-        let item = seq.get_item(i)?;
-        let wildcard_result = if item.is_instance_of::<PyDict>() {
-            item.downcast::<PyDict>()?.values().into_any()
-        } else {
-            py.None().into_bound(py)
-        };
-        let mapped_result = if is_list(&wildcard_result) {
-            let val_seq = wildcard_result.downcast::<PySequence>()?;
-            let inner_list = PyList::empty_bound(py);
-            for j in 0..val_seq.len()? {
-                let val_item = val_seq.get_item(j)?;
-                let mapped = eval_any(py, rhs, &val_item)?;
-                if !mapped.is_none() {
-                    inner_list.append(mapped)?;
-                }
-            }
-            inner_list.into_any()
-        } else {
-            eval_any(py, rhs, &wildcard_result)?
-        };
-        outer_list.append(mapped_result)?;
+    for item_value in basev.downcast::<PyDict>()?.values() {
+        let mapped = eval_any(py, rhs, &item_value)?;
+        if !mapped.is_none() {
+            out.append(mapped)?;
+        }
     }
-    Ok(outer_list.into_any())
+    Ok(out.into_any())
 }
 
 fn eval_flatten<'py>(py: Python<'py>, value: &Bounded<'py>, inner: &Node) -> Result<'py> {
@@ -289,7 +271,7 @@ fn eval_sort<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py
 
 fn eval_keys<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
     let xv = eval_any(py, x, value)?;
-    if xv.is_instance_of::<PyDict>() {
+    if is_object(&xv) {
         Ok(xv.downcast::<PyDict>()?.keys().into_any())
     } else {
         Ok(py.None().into_bound(py))
@@ -298,7 +280,7 @@ fn eval_keys<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py
 
 fn eval_values<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
     let xv = eval_any(py, x, value)?;
-    if xv.is_instance_of::<PyDict>() {
+    if is_object(&xv) {
         Ok(xv.downcast::<PyDict>()?.values().into_any())
     } else {
         Ok(py.None().into_bound(py))
@@ -347,11 +329,7 @@ fn to_number<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py
         }
         return Ok(py.None().into_bound(py));
     }
-    if xv.is_instance_of::<PyBool>()
-        || xv.is_none()
-        || xv.is_instance_of::<PyDict>()
-        || is_list(&xv)
-    {
+    if xv.is_instance_of::<PyBool>() || xv.is_none() || is_object(&xv) || is_list(&xv) {
         return Ok(py.None().into_bound(py));
     }
     if is_number(&xv) {
@@ -721,7 +699,7 @@ fn eval_type<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py
         "boolean"
     } else if is_list(&xv) {
         "array"
-    } else if xv.is_instance_of::<PyDict>() {
+    } else if is_object(&xv) {
         "object"
     } else if xv.is_none() {
         "null"
