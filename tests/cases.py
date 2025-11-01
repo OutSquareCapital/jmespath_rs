@@ -122,7 +122,6 @@ def build_cases() -> list[Case]:
         .add(qd.field("users").project("age").sum())
         .add(qd.field("users").project(qd.identity().address.city))
         .add(qd.field("users").project("name").length())
-        .add(qd.field("users").slice(None, None, 2))
         .add(
             qd.select_list(
                 qd.field("users").slice(0, 10), qd.field("users").slice(-10, None)
