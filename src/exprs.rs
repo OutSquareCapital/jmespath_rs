@@ -276,10 +276,10 @@ impl Expr {
         }
     }
 
-    #[pyo3(name = "type_")]
-    pub fn type_(&self) -> Self {
+    #[pyo3(name = "dtype")]
+    pub fn dtype(&self) -> Self {
         Self {
-            node: Node::Type(self.node.clone().into()),
+            node: Node::DType(self.node.clone().into()),
         }
     }
 

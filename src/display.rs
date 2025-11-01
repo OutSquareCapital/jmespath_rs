@@ -67,7 +67,7 @@ impl fmt::Display for Node {
             Node::Min(x) => write!(f, "min({})", x),
             Node::Reverse(x) => write!(f, "reverse({})", x),
             Node::Sum(x) => write!(f, "sum({})", x),
-            Node::Type(x) => write!(f, "type({})", x),
+            Node::DType(x) => write!(f, "type({})", x),
 
             Node::Contains(a, b) => write!(f, "contains({}, {})", a, b),
             Node::EndsWith(a, b) => write!(f, "ends_with({}, {})", a, b),

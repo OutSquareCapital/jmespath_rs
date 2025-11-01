@@ -62,7 +62,7 @@ pub fn eval_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Resu
         Node::Reverse(x) => eval_reverse(py, value, x),
         Node::StartsWith(a, b) => eval_starts_ends_with(py, value, a, b, true),
         Node::Sum(x) => eval_sum(py, value, x),
-        Node::Type(x) => eval_type(py, value, x),
+        Node::DType(x) => eval_dtype(py, value, x),
     }
 }
 
@@ -689,9 +689,9 @@ fn eval_sum<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py>
     Ok(sum.to_object(py).into_bound(py).into_any())
 }
 
-fn eval_type<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
+fn eval_dtype<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
     let xv = eval_any(py, x, value)?;
-    let type_str = if is_number(&xv) {
+    let dtype_str = if is_number(&xv) {
         "number"
     } else if xv.is_instance_of::<PyUnicode>() {
         "string"
@@ -706,5 +706,5 @@ fn eval_type<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py
     } else {
         return Ok(py.None().into_bound(py));
     };
-    Ok(PyString::new_bound(py, type_str).into_any())
+    Ok(PyString::new_bound(py, dtype_str).into_any())
 }

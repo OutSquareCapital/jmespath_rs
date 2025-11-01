@@ -101,7 +101,7 @@ pub enum Node {
     Reverse(Box<Node>),
     StartsWith(Box<Node>, Box<Node>),
     Sum(Box<Node>),
-    Type(Box<Node>),
+    DType(Box<Node>),
     CmpEq(Box<Node>, Box<Node>),
     CmpNe(Box<Node>, Box<Node>),
     CmpLt(Box<Node>, Box<Node>),
