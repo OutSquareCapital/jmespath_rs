@@ -653,13 +653,9 @@ fn eval_not_null<'py>(py: Python<'py>, value: &Bounded<'py>, items: &[Node]) -> 
 fn eval_reverse<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
     let xv = eval_any(py, x, value)?;
     if is_list(&xv) {
-        let seq = xv.downcast::<PySequence>()?;
-        let len = seq.len()?;
-        let out = PyList::empty_bound(py);
-        for i in (0..len).rev() {
-            out.append(seq.get_item(i)?)?;
-        }
-        return Ok(out.into_any());
+        return xv
+            .get_item(PySlice::new_bound(py, isize::MAX, isize::MIN, -1isize))
+            .map(|any| any.into_any());
     }
     if let Ok(s) = xv.extract::<&str>() {
         let reversed: String = s.chars().rev().collect();
