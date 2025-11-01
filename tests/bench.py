@@ -44,7 +44,7 @@ def _speedup():
     return (
         pl.col(Cols.JMESPTH)
         .truediv(pl.col(Cols.QRYDICT))
-        .round(2)
+        .round(1)
         .over(Cols.QUERY, Cols.SIZE)
         .alias(Cols.SPEEDUP)
     )
@@ -96,7 +96,7 @@ def format_results(results: list[BenchmarkResult], update_readme: bool) -> None:
         .lazy()
         .with_columns(
             pl.mean_horizontal(pl.all().exclude(Cols.QUERY))
-            .round(2)
+            .round(1)
             .alias(Cols.AVERAGE_SPEEDUP),
             pl.all().exclude(Cols.QUERY).name.suffix("_runs").name.prefix("with_"),
         )

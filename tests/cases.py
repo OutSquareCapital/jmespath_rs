@@ -80,16 +80,13 @@ class CasesBuilder:
 def build_cases() -> list[Case]:
     return (
         CasesBuilder()
-        .add(qd.field("users").index(0).address.city)
-        .add(qd.field("users").index(0).name)
-        .add(qd.field("users").slice(1, 10, 2))
         .add(qd.field("users").project("name"))
         .add(qd.field("users").vproject("address"))
         .add(qd.field("users").pipe(qd.identity().length()))
         .add(
             qd.field("users")
-            .filter(qd.field("age").ge(30).and_(qd.field("active").eq(True)))
-            .then(qd.field("name"))
+            .filter(qd.identity().age.ge(30).and_(qd.identity().active.eq(True)))
+            .then(qd.identity().name)
         )
         .add(
             qd.select_dict(
@@ -97,32 +94,17 @@ def build_cases() -> list[Case]:
                 count=qd.field("users").length(),
             )
         )
-        .add(qd.select_list(qd.field("users").index(0), qd.field("users").index(1)))
-        .add(qd.field("users").index(0).age.eq(30))
-        .add(qd.field("users").index(0).active.eq(True))
-        .add(
-            qd.field("users")
-            .index(0)
-            .age.gt(1)
-            .and_(qd.field("users").index(0).age.eq(5).not_())
-            .or_(0)
-        )
-        .add(qd.field("users").index(0).keys())
         .add(qd.field("users").length())
         .add(qd.field("users").project("name").map(qd.identity().length()))
-        .add(qd.field("users").min_by("age"))  # Modifié
+        .add(qd.field("users").min_by("age"))
         .add(qd.field("users").sort_by("age").project("name"))
-        .add(qd.field("users").index(0).to_array())
-        .add(qd.field("users").index(0).to_string())
-        .add(qd.field("users").index(0).values())
-        .add(qd.field("users").index(0).dtype())
         .add(
             qd.field("users")
             .filter(
-                qd.field("age")
-                .gt(40)
-                .and_(qd.field("active").eq(True))
-                .and_(qd.field("category").contains("VIP"))
+                qd.identity()
+                .age.gt(40)
+                .and_(qd.identity().active.eq(True))
+                .and_(qd.identity().category.contains("VIP"))
             )
             .then("name")
             .sort()
@@ -138,16 +120,41 @@ def build_cases() -> list[Case]:
         .add(qd.field("users").project("age").min())
         .add(qd.field("users").project("age").reverse())
         .add(qd.field("users").project("age").sum())
-        .add(qd.field("users").index(0).category.contains("VIP"))
-        .add(qd.field("users").index(0).category.join(", "))
-        .add(qd.merge(qd.field("users").index(0), qd.field("users").index(-1)))
-        .add(qd.field("users").index(-1).age.to_string().to_number())
-        .add(qd.field("users").index(0).name.ends_with("s"))
-        .add(qd.field("users").index(0).name.starts_with("A"))
+        .add(qd.field("users").project(qd.identity().address.city))
+        .add(qd.field("users").project("name").length())
+        .add(qd.field("users").slice(None, None, 2))
         .add(
-            qd.not_null(
-                qd.field("users").index(0).field("MISSING"),
-                qd.field("users").index(0).name,
+            qd.select_list(
+                qd.field("users").slice(0, 10), qd.field("users").slice(-10, None)
+            )
+        )
+        .add(qd.field("users").project("age").eq(30))
+        .add(qd.field("users").project("active").eq(True))
+        .add(
+            qd.field("users")
+            .project("age")
+            .gt(1)
+            .and_(qd.field("users").project("age").eq(5).not_())
+            .or_(0)
+        )
+        .add(qd.field("users").project(qd.identity().keys()))
+        .add(qd.field("users").project(qd.identity().to_array()))
+        .add(qd.field("users").project(qd.identity().to_string()))
+        .add(qd.field("users").project(qd.identity().values()))
+        .add(qd.field("users").project(qd.identity().dtype()))
+        .add(qd.field("users").project(qd.identity().category.contains("VIP")))
+        .add(qd.field("users").project(qd.identity().category.join(", ")))
+        .add(
+            qd.field("users").project(
+                qd.merge(qd.identity(), qd.lit({"extra_field": 1}))
+            )
+        )
+        .add(qd.field("users").project(qd.identity().age.to_string().to_number()))
+        .add(qd.field("users").project(qd.identity().name.ends_with("s")))
+        .add(qd.field("users").project(qd.identity().name.starts_with("A")))
+        .add(
+            qd.field("users").project(
+                qd.not_null(qd.identity().field("MISSING"), qd.identity().name)
             )
         )
         .get()
