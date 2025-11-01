@@ -25,43 +25,45 @@ A value of 2 meaning that Rust is twice as fast, a value of 0.5 meaning that Rus
 <!-- BENCHMARK_RESULTS -->
 | query | 50 | 200 | 800 |
 |---|---|---|---|
-| (users[0].age > `1` && !(users[0].age == `5`)) \|\| `0` | 30.14 | 20.5 | 26.25 |
-| [users[0], products[0]] | 15.4 | 16.0 | 11.75 |
-| avg(products[].price) | 13.09 | 13.09 | 13.09 |
-| contains(products[0].tags, `"electronics"`) | 17.0 | 19.33 | 23.2 |
-| ends_with(`"hello"`, `"lo"`) | 36.5 | 36.0 | 36.5 |
-| join(`,`, products[0].tags) | 18.14 | 18.43 | 18.14 |
-| keys(users[0]) | 20.25 | 15.67 | 20.5 |
-| length(users) | 21.0 | 19.165 | 26.585 |
-| map(&abs(@), products[].price) | 34.49 | 37.64 | 20.54 |
-| map(&ceil(@), products[].price) | 34.13 | 17.91 | 18.44 |
-| map(&floor(@), products[].price) | 33.97 | 36.24 | 34.92 |
-| map(&length(@), users[].name) | 42.88 | 42.21 | 40.26 |
-| max(products[].price) | 11.77 | 11.3 | 11.41 |
-| max_by(products, &price) | 2.66 | 2.31 | 4.11 |
-| merge(users[0], products[0]) | 17.83 | 17.67 | 11.67 |
-| min(products[].price) | 11.3 | 11.3 | 11.81 |
-| min_by(users, &age) | 7.94 | 9.24 | 7.84 |
-| not_null(null, `"a"`, `"b"`) | 33.5 | 33.0 | 37.0 |
-| products[].tags[] | 16.36 | 16.28 | 15.81 |
-| reverse(products[].price) | 11.08 | 10.52 | 11.04 |
-| sort(products[].tags[]) | 13.57 | 13.32 | 13.76 |
-| sort_by(users, &age)[].name | 4.69 | 4.39 | 6.86 |
-| starts_with(`"hello"`, `"he"`) | 20.5 | 36.0 | 36.0 |
-| sum(products[].price) | 13.59 | 12.91 | 13.45 |
-| to_array(users[0]) | 23.67 | 13.67 | 24.0 |
-| to_number(`42`) | 24.0 | 13.5 | 24.5 |
-| to_string(users[0]) | 1.94 | 1.76 | 1.95 |
-| type(users[0]) | 10.25 | 18.0 | 18.0 |
-| users[0].active == `true` | 18.2 | 18.33 | 23.25 |
-| users[0].address.city | 11.0 | 18.0 | 14.8 |
-| users[0].age == `30` | 25.25 | 13.56 | 34.0 |
-| users[0].name | 15.0 | 15.75 | 16.0 |
-| users[1:10:2] | 25.5 | 25.0 | 25.25 |
-| users[?age >= `30` && active == `true`].name | 13.36 | 24.72 | 22.4 |
-| users[].\*.address | 38.95 | 38.16 | 34.31 |
-| users[].name | 11.05 | 5.08 | 5.05 |
-| values(users[0]) | 20.0 | 15.33 | 20.5 |
-| {names: users[].name, count: length(users)} | 11.96 | 5.58 | 10.03 |
+| ((users[0].age > `1` && !(users[0].age == `5`)) \|\| `0`) | 20.5 | 26.62 | 16.5 |
+| [users[0], products[0]] | 16.0 | 16.2 | 17.0 |
+| avg(products[\*].price) | 6.68 | 11.0 | 11.52 |
+| contains(products[0].tags, `"electronics"`) | 23.9 | 17.75 | 17.5 |
+| ends_with(`"hello"`, `"lo"`) | 36.5 | 36.0 | 20.0 |
+| join(`", "`, products[0].tags) | 17.0 | 18.29 | 15.6 |
+| keys(users[0]) | 16.0 | 27.33 | 16.67 |
+| length(users) | 18.0 | 21.67 | 18.0 |
+| map(&abs(@), products[\*].price) | 18.93 | 33.03 | 31.03 |
+| map(&ceil(@), products[\*].price) | 18.63 | 32.22 | 31.06 |
+| map(&floor(@), products[\*].price) | 32.78 | 32.36 | 30.15 |
+| map(&length(@), users[\*].name) | 22.78 | 33.76 | 37.98 |
+| max(products[\*].price) | 5.71 | 10.07 | 5.85 |
+| max_by(products, &price) | 2.73 | 2.43 | 4.58 |
+| merge(users[0], products[0]) | 22.1 | 15.605 | 12.9 |
+| min(products[\*].price) | 10.48 | 5.94 | 5.74 |
+| min_by(users, &age) | 8.52 | 7.83 | 7.93 |
+| not_null(`null`, `"a"`, `"b"`) | 32.25 | 30.75 | 34.5 |
+| products[\*].tags[] | 14.07 | 14.54 | 13.93 |
+| reverse(products[\*].price) | 10.22 | 5.29 | 5.56 |
+| sort(products[\*].tags[]) | 12.7 | 12.54 | 12.81 |
+| sort(users[?((age > `40` && active == `true`) && contains(category, `"VIP"`))].name) | 25.77 | 26.21 | 24.44 |
+| sort_by[users, &age](\*).name | 7.61 | 6.84 | 6.23 |
+| starts_with(`"hello"`, `"he"`) | 37.75 | 36.5 | 20.5 |
+| sum(products[\*].price) | 11.83 | 6.3 | 6.73 |
+| to_array(users[0]) | 23.67 | 21.0 | 23.0 |
+| to_number(`"42"`) | 28.0 | 29.0 | 25.5 |
+| to_string(users[0]) | 1.34 | 2.0 | 2.02 |
+| type(users[0]) | 19.0 | 21.5 | 22.0 |
+| users \| length(@) | 29.33 | 29.0 | 17.0 |
+| users.\*.address | 13.33 | 13.67 | 13.33 |
+| users[\*].name | 8.69 | 8.48 | 7.71 |
+| users[0].active == `true` | 18.4 | 23.5 | 18.8 |
+| users[0].address.city | 14.2 | 14.8 | 14.6 |
+| users[0].age == `30` | 22.44 | 20.4 | 20.6 |
+| users[0].name | 13.0 | 13.0 | 16.0 |
+| users[1:10:2] | 33.0 | 25.0 | 25.25 |
+| users[?(age >= `30` && active == `true`)].name | 13.66 | 24.23 | 22.39 |
+| values(users[0]) | 16.0 | 20.5 | 20.75 |
+| {"names": users[\*].name, "count": length(users)} | 9.82 | 8.78 | 6.08 |
 
 <!-- END_BENCHMARK_RESULTS -->

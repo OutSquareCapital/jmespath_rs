@@ -1042,7 +1042,7 @@ class FilteredExpr:
     Call `.then()` on it to complete the projection.
     """
 
-    def then(self, then: Expr) -> Expr:
+    def then(self, then: IntoExpr) -> Expr:
         """
         Completes the filtered expression by specifying the projection.
 
@@ -1061,7 +1061,7 @@ class FilteredExpr:
         ... ])
         >>> # Find names of people older than 25
         >>> cond = jp.identity().age.gt(jp.lit(25))
-        >>> query = jp.identity().filter(cond).then(jp.identity().name)
+        >>> query = jp.identity().filter(cond).then("name")
         >>> data.collect(query)
         ['Alice']
         ```

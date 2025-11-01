@@ -134,6 +134,19 @@ def build_cases() -> list[Case]:
         .add(qd.field("products").index(0).tags.join(", "))
         .add(qd.merge(qd.field("users").index(0), qd.field("products").index(0)))
         .add(qd.not_null(qd.lit(None), qd.lit("a"), qd.lit("b")))
+        .add(qd.merge(qd.field("users").index(0), qd.field("products").index(0)))
+        .add(qd.not_null(qd.lit(None), qd.lit("a"), qd.lit("b")))
+        .add(
+            qd.field("users")
+            .filter(
+                qd.field("age")
+                .gt(40)
+                .and_(qd.field("active").eq(True))
+                .and_(qd.field("category").contains("VIP"))
+            )
+            .then("name")
+            .sort()
+        )
         .get()
     )
 
