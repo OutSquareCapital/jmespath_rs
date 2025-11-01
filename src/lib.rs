@@ -2,6 +2,7 @@ use pyo3::prelude::*;
 
 mod checks;
 mod datajson;
+mod display;
 mod eval;
 mod exprs;
 mod nodes;
