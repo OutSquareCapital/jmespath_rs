@@ -1,10 +1,10 @@
 [package]
-name = "jmespath_rs"
+name = "dictexprs"
 version = "0.1.1"
 edition = "2021"
 
 [lib]
-name = "jmespath_rs"
+name = "dictexprs"
 crate-type = ["cdylib"]
 
 [dependencies]

@@ -14,9 +14,9 @@ def field(name: str) -> Expr:
 
     Example:
     ```python
-    >>> import jmespath_rs as jp
+    >>> import dictexprs as dx
     >>> data = {"foo": "bar"}
-    >>> jp.field("foo").search(data)
+    >>> dx.field("foo").search(data)
     'bar'
 
     ```
@@ -34,9 +34,9 @@ def select_list(*exprs: Expr) -> Expr:
 
     Example:
     ```python
-    >>> import jmespath_rs as jp
+    >>> import dictexprs as dx
     >>> data = {"foo": 1, "bar": 2}
-    >>> query = jp.select_list(jp.identity().field("foo"), jp.identity().field("bar"), jp.lit(3))
+    >>> query = dx.select_list(dx.identity().field("foo"), dx.identity().field("bar"), dx.lit(3))
     >>> query.search(data)
     [1, 2, 3]
 
@@ -56,9 +56,9 @@ def select_dict(**items: IntoExpr) -> Expr:
 
     Example:
     ```python
-    >>> import jmespath_rs as jp
+    >>> import dictexprs as dx
     >>> data = {"foo": "bar", "baz": "qux"}
-    >>> query = jp.select_dict(a=jp.identity().field("foo"), b="literal_string", c=jp.lit(10))
+    >>> query = dx.select_dict(a=dx.identity().field("foo"), b="literal_string", c=dx.lit(10))
     >>> query.search(data)
     {'a': 'bar', 'b': 'literal_string', 'c': 10}
 
@@ -77,10 +77,10 @@ def lit(value: Any) -> Expr:
 
     Example:
     ```python
-    >>> import jmespath_rs as jp
+    >>> import dictexprs as dx
     >>> data = {"age": 20}
     >>> # Compare the 'age' field to the literal value 18
-    >>> query = jp.identity().field("age").gt(jp.lit(18))
+    >>> query = dx.identity().field("age").gt(dx.lit(18))
     >>> query.search(data)
     True
 
@@ -96,10 +96,10 @@ def identity() -> Expr:
 
     Example:
     ```python
-    >>> import jmespath_rs as jp
+    >>> import dictexprs as dx
     >>> data = [1, 2, 3]
     >>> # The identity expression returns the current data
-    >>> jp.identity().search(data)
+    >>> dx.identity().search(data)
     [1, 2, 3]
 
     ```
@@ -117,9 +117,9 @@ def merge(*exprs: Expr) -> Expr:
 
     Example:
     ```python
-    >>> import jmespath_rs as jp
+    >>> import dictexprs as dx
     >>> data = {"a": 1, "b": {"c": 2}}
-    >>> query = jp.merge(jp.identity().field("b"), jp.select_dict(d=jp.lit(3)))
+    >>> query = dx.merge(dx.identity().field("b"), dx.select_dict(d=dx.lit(3)))
     >>> query.search(data)
     {'c': 2, 'd': 3}
 
@@ -138,9 +138,9 @@ def not_null(*exprs: Expr) -> Expr:
 
     Example:
     ```python
-    >>> import jmespath_rs as jp
+    >>> import dictexprs as dx
     >>> data = {"a": None, "b": "hello", "c": "world"}
-    >>> query = jp.not_null(jp.field("a"), jp.field("b"), jp.field("c"))
+    >>> query = dx.not_null(dx.field("a"), dx.field("b"), dx.field("c"))
     >>> query.search(data)
     'hello'
 
@@ -163,9 +163,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = {"foo": [1, 2, 3]}
-        >>> query = jp.identity().field("foo").project(jp.identity().gt(jp.lit(1)))
+        >>> query = dx.identity().field("foo").project(dx.identity().gt(dx.lit(1)))
         >>> query.search(data)
         [False, True, True]
 
@@ -179,8 +179,8 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
-        >>> query = jp.identity().field("foo").project("bar")
+        >>> import dictexprs as dx
+        >>> query = dx.identity().field("foo").project("bar")
         >>> query.to_jmespath()
         'foo[*].bar'
 
@@ -199,9 +199,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = {"foo": "bar"}
-        >>> jp.identity().field("foo").search(data)
+        >>> dx.identity().field("foo").search(data)
         'bar'
         ```
         """
@@ -220,9 +220,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = {"foo": "bar"}
-        >>> jp.identity().foo.search(data)
+        >>> dx.identity().foo.search(data)
         'bar'
         ```
         """
@@ -239,11 +239,11 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = ["a", "b", "c"]
-        >>> jp.identity().index(1).search(data)
+        >>> dx.identity().index(1).search(data)
         'b'
-        >>> jp.identity().index(-1).search(data)
+        >>> dx.identity().index(-1).search(data)
         'c'
         ```
         """
@@ -267,11 +267,11 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = [0, 1, 2, 3, 4, 5]
-        >>> jp.identity().slice(1, 4).search(data)
+        >>> dx.identity().slice(1, 4).search(data)
         [1, 2, 3]
-        >>> jp.identity().slice(step=2).search(data)
+        >>> dx.identity().slice(step=2).search(data)
         [0, 2, 4]
         ```
         """
@@ -288,9 +288,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = [{"a": 1}, {"a": 2}]
-        >>> jp.identity().project("a").search(data)
+        >>> dx.identity().project("a").search(data)
         [1, 2]
         ```
         """
@@ -307,9 +307,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = {"a": {"id": 1}, "b": {"id": 2}}
-        >>> jp.identity().vproject("id").search(data)
+        >>> dx.identity().vproject("id").search(data)
         [1, 2]
         ```
         """
@@ -323,9 +323,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = [[1, 2], [3, 4]]
-        >>> jp.identity().flatten().search(data)
+        >>> dx.identity().flatten().search(data)
         [1, 2, 3, 4]
         ```
         """
@@ -342,9 +342,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = [{"a": 1}, {"a": 2}, {"a": 3}]
-        >>> query = jp.identity().filter(jp.identity().a.gt(jp.lit(1))).then("a")
+        >>> query = dx.identity().filter(dx.identity().a.gt(dx.lit(1))).then("a")
         >>> query.search(data)
         [2, 3]
         ```
@@ -362,9 +362,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = "foo"
-        >>> jp.identity().eq("foo").search(data)
+        >>> dx.identity().eq("foo").search(data)
         True
         ```
         """
@@ -381,9 +381,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = "foo"
-        >>> jp.identity().ne("bar").search(data)
+        >>> dx.identity().ne("bar").search(data)
         True
         ```
         """
@@ -400,9 +400,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = 10
-        >>> jp.identity().gt(5).search(data)
+        >>> dx.identity().gt(5).search(data)
         True
         ```
         """
@@ -419,9 +419,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = 10
-        >>> jp.identity().ge(10).search(data)
+        >>> dx.identity().ge(10).search(data)
         True
         ```
         """
@@ -438,9 +438,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = 10
-        >>> jp.identity().lt(20).search(data)
+        >>> dx.identity().lt(20).search(data)
         True
         ```
         """
@@ -457,9 +457,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = 10
-        >>> jp.identity().le(10).search(data)
+        >>> dx.identity().le(10).search(data)
         True
         ```
         """
@@ -476,9 +476,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = True
-        >>> jp.identity().and_(False).search(data)
+        >>> dx.identity().and_(False).search(data)
         False
         ```
         """
@@ -495,9 +495,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = True
-        >>> jp.identity().or_(False).search(data)
+        >>> dx.identity().or_(False).search(data)
         True
         ```
         """
@@ -511,9 +511,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = False
-        >>> jp.identity().not_().search(data)
+        >>> dx.identity().not_().search(data)
         True
         ```
         """
@@ -530,9 +530,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = {"foo": [3, 1, 2]}
-        >>> query = jp.identity().foo.pipe(jp.identity().sort())
+        >>> query = dx.identity().foo.pipe(dx.identity().sort())
         >>> query.search(data)
         [1, 2, 3]
         ```
@@ -547,9 +547,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = -10.5
-        >>> jp.identity().abs().search(data)
+        >>> dx.identity().abs().search(data)
         10.5
         ```
         """
@@ -563,9 +563,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = [1, 2, 3, 4]
-        >>> jp.identity().avg().search(data)
+        >>> dx.identity().avg().search(data)
         2.5
         ```
         """
@@ -579,9 +579,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = 1.2
-        >>> jp.identity().ceil().search(data)
+        >>> dx.identity().ceil().search(data)
         2.0
         ```
         """
@@ -595,9 +595,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = 1.8
-        >>> jp.identity().floor().search(data)
+        >>> dx.identity().floor().search(data)
         1.0
         ```
         """
@@ -611,9 +611,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = [1, 5, 2, 4]
-        >>> jp.identity().max().search(data)
+        >>> dx.identity().max().search(data)
         5
         ```
         """
@@ -627,9 +627,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = [1, 5, 2, 4]
-        >>> jp.identity().min().search(data)
+        >>> dx.identity().min().search(data)
         1
         ```
         """
@@ -643,10 +643,10 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
-        >>> jp.identity().reverse().search([1, 2, 3])
+        >>> import dictexprs as dx
+        >>> dx.identity().reverse().search([1, 2, 3])
         [3, 2, 1]
-        >>> jp.identity().reverse().search("abc")
+        >>> dx.identity().reverse().search("abc")
         'cba'
         ```
         """
@@ -660,8 +660,8 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
-        >>> jp.identity().sum().search([1, 2, 3])
+        >>> import dictexprs as dx
+        >>> dx.identity().sum().search([1, 2, 3])
         6.0
         ```
         """
@@ -675,10 +675,10 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
-        >>> jp.identity().dtype().search({"a": 1})
+        >>> import dictexprs as dx
+        >>> dx.identity().dtype().search({"a": 1})
         'object'
-        >>> jp.identity().dtype().search(123)
+        >>> dx.identity().dtype().search(123)
         'number'
         ```
         """
@@ -695,10 +695,10 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
-        >>> jp.identity().contains("ell").search("hello")
+        >>> import dictexprs as dx
+        >>> dx.identity().contains("ell").search("hello")
         True
-        >>> jp.identity().contains(2).search([1, 2, 3])
+        >>> dx.identity().contains(2).search([1, 2, 3])
         True
         ```
         """
@@ -715,9 +715,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = "hello"
-        >>> jp.identity().ends_with("llo").search(data)
+        >>> dx.identity().ends_with("llo").search(data)
         True
         ```
         """
@@ -734,9 +734,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = "hello"
-        >>> jp.identity().starts_with("he").search(data)
+        >>> dx.identity().starts_with("he").search(data)
         True
         ```
         """
@@ -753,9 +753,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = ["a", "b", "c"]
-        >>> jp.identity().join("-").search(data)
+        >>> dx.identity().join("-").search(data)
         'a-b-c'
         ```
         """
@@ -769,10 +769,10 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
-        >>> jp.identity().length().search([1, 2, 3])
+        >>> import dictexprs as dx
+        >>> dx.identity().length().search([1, 2, 3])
         3
-        >>> jp.identity().length().search("hello")
+        >>> dx.identity().length().search("hello")
         5
         ```
         """
@@ -786,9 +786,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = [3, 1, 2]
-        >>> jp.identity().sort().search(data)
+        >>> dx.identity().sort().search(data)
         [1, 2, 3]
         ```
         """
@@ -802,9 +802,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = {"a": 1, "b": 2}
-        >>> sorted(jp.identity().keys().search(data))
+        >>> sorted(dx.identity().keys().search(data))
         ['a', 'b']
         ```
         """
@@ -818,9 +818,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = {"a": 1, "b": 2}
-        >>> sorted(jp.identity().values().search(data))
+        >>> sorted(dx.identity().values().search(data))
         [1, 2]
         ```
         """
@@ -834,9 +834,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = {"a": 1}
-        >>> jp.identity().to_string().search(data)
+        >>> dx.identity().to_string().search(data)
         '{"a":1}'
         ```
         """
@@ -850,9 +850,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = "1.23"
-        >>> jp.identity().to_number().search(data)
+        >>> dx.identity().to_number().search(data)
         1.23
         ```
         """
@@ -866,10 +866,10 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
-        >>> jp.identity().to_array().search("foo")
+        >>> import dictexprs as dx
+        >>> dx.identity().to_array().search("foo")
         ['foo']
-        >>> jp.identity().to_array().search([1, 2])
+        >>> dx.identity().to_array().search([1, 2])
         [1, 2]
         ```
         """
@@ -886,9 +886,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = [{"a": 1}, {"a": 2}, {"a": 3}]
-        >>> jp.identity().map("a").search(data)
+        >>> dx.identity().map("a").search(data)
         [1, 2, 3]
         ```
         """
@@ -905,9 +905,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = [{"a": 3}, {"a": 1}, {"a": 2}]
-        >>> jp.identity().sort_by("a").search(data)
+        >>> dx.identity().sort_by("a").search(data)
         [{'a': 1}, {'a': 2}, {'a': 3}]
         ```
         """
@@ -924,9 +924,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = [{"a": 3}, {"a": 1}, {"a": 2}]
-        >>> jp.identity().min_by("a").search(data)
+        >>> dx.identity().min_by("a").search(data)
         {'a': 1}
         ```
         """
@@ -943,9 +943,9 @@ class Expr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = [{"a": 3}, {"a": 1}, {"a": 2}]
-        >>> jp.identity().max_by("a").search(data)
+        >>> dx.identity().max_by("a").search(data)
         {'a': 3}
         ```
         """
@@ -970,14 +970,14 @@ class FilteredExpr:
 
         Example:
         ```python
-        >>> import jmespath_rs as jp
+        >>> import dictexprs as dx
         >>> data = [
         ...     {"name": "Alice", "age": 30},
         ...     {"name": "Bob", "age": 20}
         ... ]
         >>> # Find names of people older than 25
-        >>> cond = jp.identity().age.gt(jp.lit(25))
-        >>> query = jp.identity().filter(cond).then("name")
+        >>> cond = dx.identity().age.gt(dx.lit(25))
+        >>> query = dx.identity().filter(cond).then("name")
         >>> query.search(data)
         ['Alice']
         ```

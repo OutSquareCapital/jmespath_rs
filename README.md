@@ -1,4 +1,4 @@
-# jmespath_rs
+# dictexprs
 
 A simple package to test Rust interaction with dictionaries.
 
@@ -60,7 +60,7 @@ A value of 2 meaning that Rust is twice as fast, a value of 0.5 meaning that Rus
 | users[\*].active == `true` | 9.3 | 4.5 | 8.1 | 7.3 |
 | min(users[\*].age) | 9.2 | 4.5 | 8.0 | 7.2 |
 | max_by(users, &age) | 4.8 | 8.0 | 7.9 | 6.9 |
-| sort_by(users, &age)[\*].name | 4.6 | 7.4 | 6.4 | 6.1 |
+| sort_by[users, &age](\*).name | 4.6 | 7.4 | 6.4 | 6.1 |
 | {"names": users[\*].name, "count": length(users)} | 5.3 | 4.5 | 8.3 | 6.0 |
 | users[\*].to_number(to_string(age)) | 2.9 | 2.0 | 2.0 | 2.3 |
 | users[\*].to_string(@) | 1.4 | 1.3 | 1.3 | 1.3 |
