@@ -66,18 +66,9 @@ pub enum Node {
     Slice(Option<isize>, Option<isize>, Option<isize>),
     Literal(PyObjectWrapper),
 
-    Pipe(Box<Node>, Box<Node>),
     SubExpr(Box<Node>, Box<Node>),
     MultiList(Vec<Node>),
     MultiDict(Vec<(String, Node)>),
-    ProjectArray {
-        base: Box<Node>,
-        rhs: Box<Node>,
-    },
-    ProjectObject {
-        base: Box<Node>,
-        rhs: Box<Node>,
-    },
     Flatten(Box<Node>),
     FilterProjection {
         base: Box<Node>,
@@ -101,7 +92,6 @@ pub enum Node {
     Reverse(Box<Node>),
     StartsWith(Box<Node>, Box<Node>),
     Sum(Box<Node>),
-    DType(Box<Node>),
     CmpEq(Box<Node>, Box<Node>),
     CmpNe(Box<Node>, Box<Node>),
     CmpLt(Box<Node>, Box<Node>),
@@ -112,9 +102,6 @@ pub enum Node {
     Sort(Box<Node>),
     Keys(Box<Node>),
     Values(Box<Node>),
-    ToArray(Box<Node>),
-    ToString(Box<Node>),
-    ToNumber(Box<Node>),
     MapApply {
         base: Box<Node>,
         key: Box<Node>,

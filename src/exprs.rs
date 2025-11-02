@@ -45,30 +45,6 @@ impl Expr {
         }
     }
 
-    pub fn pipe(&self, rhs: Expr) -> Self {
-        Self {
-            node: Node::Pipe(self.node.clone().into(), rhs.node.into()),
-        }
-    }
-
-    pub fn project(&self, py: Python<'_>, rhs: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            node: Node::ProjectArray {
-                base: self.node.clone().into(),
-                rhs: into_node(py, rhs)?.into(),
-            },
-        })
-    }
-
-    pub fn vproject(&self, py: Python<'_>, rhs: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            node: Node::ProjectObject {
-                base: self.node.clone().into(),
-                rhs: into_node(py, rhs)?.into(),
-            },
-        })
-    }
-
     pub fn eq(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
             node: Node::CmpEq(self.node.clone().into(), into_node_lit(py, other)?.into()),
@@ -181,24 +157,6 @@ impl Expr {
         }
     }
 
-    #[pyo3(name = "dtype")]
-    pub fn dtype(&self) -> Self {
-        Self {
-            node: Node::DType(self.node.clone().into()),
-        }
-    }
-
-    pub fn to_number(&self) -> Self {
-        Self {
-            node: Node::ToNumber(self.node.clone().into()),
-        }
-    }
-
-    pub fn to_string(&self) -> Expr {
-        Expr {
-            node: Node::ToString(self.node.clone().into()),
-        }
-    }
     pub fn search(&self, py: Python<'_>, data: PyObject) -> PyResult<PyObject> {
         eval::eval_any(py, &self.node, data.bind(py)).map(|result| result.unbind())
     }

@@ -7,7 +7,6 @@ use pyo3::types::*;
 
 const BUILTINS: &str = "builtins";
 const SORTED: &str = "sorted";
-const JSON: &str = "json";
 
 type Result<'py> = PyResult<Bound<'py, PyAny>>;
 type Bounded<'py> = Bound<'py, PyAny>;
@@ -19,11 +18,9 @@ pub fn eval_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Resu
         Node::Field(name) => eval_field(py, value, name),
         Node::Index(i) => eval_index(py, value, i),
         Node::Slice(start, end, step) => eval_slice(py, value, start, end, step),
-        Node::Pipe(lhs, rhs) | Node::SubExpr(lhs, rhs) => eval_pipe(py, value, lhs, rhs),
+        Node::SubExpr(lhs, rhs) => eval_pipe(py, value, lhs, rhs),
         Node::MultiList(items) => eval_multi_list(py, value, items),
         Node::MultiDict(items) => eval_multi_dict(py, value, items),
-        Node::ProjectArray { base, rhs } => eval_project_array(py, value, base, rhs),
-        Node::ProjectObject { base, rhs } => eval_project_object(py, value, base, rhs),
         Node::Flatten(inner) => eval_flatten(py, value, inner),
         Node::FilterProjection { base, then, cond } => {
             eval_filter_projection(py, value, base, then, cond)
@@ -41,9 +38,6 @@ pub fn eval_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Resu
         Node::Sort(x) => eval_sort(py, value, x),
         Node::Keys(x) => eval_keys(py, value, x),
         Node::Values(x) => eval_values(py, value, x),
-        Node::ToArray(x) => eval_to_array(py, value, x),
-        Node::ToString(x) => eval_to_string(py, value, x),
-        Node::ToNumber(x) => to_number(py, value, x),
         Node::MapApply { base, key } => map_apply(py, value, base, key),
         Node::SortBy { base, key } => sort_like(py, value, base, key, SortKind::SortBy),
         Node::MinBy { base, key } => sort_like(py, value, base, key, SortKind::MinBy),
@@ -62,7 +56,6 @@ pub fn eval_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Resu
         Node::Reverse(x) => eval_reverse(py, value, x),
         Node::StartsWith(a, b) => eval_starts_ends_with(py, value, a, b, true),
         Node::Sum(x) => eval_sum(py, value, x),
-        Node::DType(x) => eval_dtype(py, value, x),
     }
 }
 
@@ -139,49 +132,6 @@ fn eval_multi_dict<'py>(
     Ok(out.into_any())
 }
 
-fn eval_project_array<'py>(
-    py: Python<'py>,
-    value: &Bounded<'py>,
-    base: &Node,
-    rhs: &Node,
-) -> Result<'py> {
-    let basev = eval_any(py, base, value)?;
-    if !is_list(&basev) {
-        return Ok(py.None().into_bound(py));
-    }
-    let seq = basev.downcast::<PySequence>()?;
-    let out = PyList::empty_bound(py);
-    for i in 0..seq.len()? {
-        let el = seq.get_item(i)?;
-        let mapped = eval_any(py, rhs, &el)?;
-        if !mapped.is_none() {
-            out.append(mapped)?;
-        }
-    }
-    Ok(out.into_any())
-}
-fn eval_project_object<'py>(
-    py: Python<'py>,
-    value: &Bounded<'py>,
-    base: &Node,
-    rhs: &Node,
-) -> Result<'py> {
-    let basev = eval_any(py, base, value)?;
-    if !is_object(&basev) {
-        return Ok(py.None().into_bound(py));
-    }
-
-    let out = PyList::empty_bound(py);
-
-    for item_value in basev.downcast::<PyDict>()?.values() {
-        let mapped = eval_any(py, rhs, &item_value)?;
-        if !mapped.is_none() {
-            out.append(mapped)?;
-        }
-    }
-    Ok(out.into_any())
-}
-
 fn eval_flatten<'py>(py: Python<'py>, value: &Bounded<'py>, inner: &Node) -> Result<'py> {
     let base = eval_any(py, inner, value)?;
     if !is_list(&base) {
@@ -218,7 +168,7 @@ fn eval_filter_projection<'py>(
     for i in 0..seq.len()? {
         let el = seq.get_item(i)?;
         let c = eval_any(py, cond, &el)?;
-        if not_empty(&c)? {
+        if c.is_truthy()? {
             out.append(eval_any(py, then, &el)?)?;
         }
     }
@@ -227,7 +177,7 @@ fn eval_filter_projection<'py>(
 
 fn eval_and<'py>(py: Python<'py>, value: &Bounded<'py>, a: &Node, b: &Node) -> Result<'py> {
     let av = eval_any(py, a, &value)?;
-    if not_empty(&av)? {
+    if av.is_truthy()? {
         eval_any(py, b, value)
     } else {
         Ok(av)
@@ -236,7 +186,7 @@ fn eval_and<'py>(py: Python<'py>, value: &Bounded<'py>, a: &Node, b: &Node) -> R
 
 fn eval_or<'py>(py: Python<'py>, value: &Bounded<'py>, a: &Node, b: &Node) -> Result<'py> {
     let av = eval_any(py, a, &value)?;
-    if not_empty(&av)? {
+    if av.is_truthy()? {
         Ok(av)
     } else {
         eval_any(py, b, value)
@@ -244,8 +194,7 @@ fn eval_or<'py>(py: Python<'py>, value: &Bounded<'py>, a: &Node, b: &Node) -> Re
 }
 
 fn eval_not<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
-    let xv = eval_any(py, x, value)?;
-    let res = (is_number(&xv) && xv.extract::<i64>().unwrap_or(1) == 0) || is_empty(&xv)?;
+    let res = !eval_any(py, x, value)?.is_truthy()?;
     Ok(res.to_object(py).into_bound(py).into_any())
 }
 
@@ -264,9 +213,7 @@ fn eval_sort<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py
     if !is_list(&xv) {
         return Ok(py.None().into_bound(py));
     }
-    let builtins = py.import_bound(BUILTINS)?;
-    let sorted = builtins.getattr(SORTED)?.call1((xv,))?;
-    Ok(sorted)
+    Ok(py.import_bound(BUILTINS)?.getattr(SORTED)?.call1((xv,))?)
 }
 
 fn eval_keys<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
@@ -287,63 +234,6 @@ fn eval_values<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'
     }
 }
 
-fn eval_to_array<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
-    let xv = eval_any(py, x, value)?;
-    if is_list(&xv) {
-        Ok(xv)
-    } else {
-        let out = PyList::empty_bound(py);
-        out.append(xv)?;
-        Ok(out.into_any())
-    }
-}
-
-fn eval_to_string<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
-    let xv = eval_any(py, x, value)?;
-    if xv.is_instance_of::<PyUnicode>() {
-        Ok(xv)
-    } else {
-        let json = py.import_bound(JSON)?;
-        let kwargs = PyDict::new_bound(py);
-        let seps = PyTuple::new_bound(
-            py,
-            &[
-                PyString::new_bound(py, ",").into_any(),
-                PyString::new_bound(py, ":").into_any(),
-            ],
-        );
-        kwargs.set_item("separators", seps)?;
-        let s = json.getattr("dumps")?.call((xv,), Some(&kwargs))?;
-        Ok(s)
-    }
-}
-
-fn to_number<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
-    let xv = eval_any(py, x, value)?;
-    if let Ok(s) = xv.extract::<&str>() {
-        if let Ok(i) = s.parse::<i64>() {
-            return Ok(i.to_object(py).into_bound(py).into_any());
-        }
-        if let Ok(f) = s.parse::<f64>() {
-            return Ok(f.to_object(py).into_bound(py).into_any());
-        }
-        return Ok(py.None().into_bound(py));
-    }
-    if xv.is_instance_of::<PyBool>() || xv.is_none() || is_object(&xv) || is_list(&xv) {
-        return Ok(py.None().into_bound(py));
-    }
-    if is_number(&xv) {
-        return Ok(xv);
-    }
-
-    if let Ok(i) = xv.extract::<i64>() {
-        return Ok(i.to_object(py).into_bound(py).into_any());
-    }
-    if let Ok(f) = xv.extract::<f64>() {
-        return Ok(f.to_object(py).into_bound(py).into_any());
-    }
-    Ok(py.None().into_bound(py))
-}
 fn map_apply<'py>(py: Python<'py>, value: &Bounded<'py>, base: &Node, key: &Node) -> Result<'py> {
     let basev = eval_any(py, base, value)?;
     if !is_list(&basev) {
@@ -368,8 +258,8 @@ fn cmp_bool<'py>(
     let va = eval_any(py, a, value)?;
     let vb = eval_any(py, b, value)?;
     let res = match op {
-        CompareOp::Eq => eq_semantics(&va, &vb)?,
-        CompareOp::Ne => !eq_semantics(&va, &vb)?,
+        CompareOp::Eq => va.eq(&vb)?,
+        CompareOp::Ne => !va.eq(&vb)?,
         _ => {
             if !(is_comparable(&va) && is_comparable(&vb)) {
                 false
@@ -462,8 +352,12 @@ fn eval_abs<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py>
     if !is_number(&xv) {
         return Ok(py.None().into_bound(py));
     }
-    let f = xv.extract::<f64>()?;
-    Ok(f.abs().to_object(py).into_bound(py).into_any())
+    Ok(xv
+        .extract::<f64>()?
+        .abs()
+        .to_object(py)
+        .into_bound(py)
+        .into_any())
 }
 
 fn eval_avg<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
@@ -516,7 +410,7 @@ fn eval_contains<'py>(py: Python<'py>, value: &Bounded<'py>, a: &Node, b: &Node)
         let seq = subject.downcast::<PySequence>()?;
         let mut found = false;
         for i in 0..seq.len()? {
-            if eq_semantics(&seq.get_item(i)?, &search)? {
+            if seq.get_item(i)?.eq(&search)? {
                 found = true;
                 break;
             }
@@ -597,32 +491,15 @@ fn eval_min_max<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node, is_max: bo
         return Ok(py.None().into_bound(py));
     }
 
-    let mut items: Vec<PyObject> = Vec::with_capacity(len);
-    let mut has_str = false;
-    let mut has_num = false;
-
-    for i in 0..len {
-        let el = seq.get_item(i)?;
-        if is_number(&el) {
-            has_num = true;
-        } else if el.is_instance_of::<PyUnicode>() {
-            has_str = true;
-        } else {
-            return Ok(py.None().into_bound(py));
-        }
-        if has_str && has_num {
-            return Ok(py.None().into_bound(py));
-        }
-        items.push(el.to_object(py));
-    }
-
     let op = if is_max { CompareOp::Gt } else { CompareOp::Lt };
-    let mut best = items[0].clone_ref(py).into_bound(py);
+    let mut best = seq.get_item(0)?;
 
     for i in 1..len {
-        let current = items[i].clone_ref(py).into_bound(py);
-        if current.rich_compare(&best, op)?.is_truthy()? {
-            best = current;
+        let current = seq.get_item(i)?;
+        if is_comparable(&current) && is_comparable(&best) {
+            if current.rich_compare(&best, op)?.is_truthy()? {
+                best = current;
+            }
         }
     }
     Ok(best.into_any())
@@ -683,24 +560,4 @@ fn eval_sum<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py>
         sum += el.extract::<f64>()?;
     }
     Ok(sum.to_object(py).into_bound(py).into_any())
-}
-
-fn eval_dtype<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
-    let xv = eval_any(py, x, value)?;
-    let dtype_str = if is_number(&xv) {
-        "number"
-    } else if xv.is_instance_of::<PyUnicode>() {
-        "string"
-    } else if xv.is_instance_of::<PyBool>() {
-        "boolean"
-    } else if is_list(&xv) {
-        "array"
-    } else if is_object(&xv) {
-        "object"
-    } else if xv.is_none() {
-        "null"
-    } else {
-        return Ok(py.None().into_bound(py));
-    };
-    Ok(PyString::new_bound(py, dtype_str).into_any())
 }
