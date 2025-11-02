@@ -1,8 +1,11 @@
 use crate::eval;
+use crate::lists::ExprListNameSpace;
 use crate::nodes::{into_node, into_node_lit, Node, PyObjectWrapper};
+use crate::strings::ExprStrNameSpace;
+use crate::structs::ExprStructNameSpace;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-#[pyclass(module = "jmespath_rs", name = "FilteredExpr")]
+#[pyclass(module = "dictexprs", name = "FilteredExpr")]
 pub struct FilteredExpr {
     base: Node,
     cond: Node,
@@ -20,7 +23,7 @@ impl FilteredExpr {
         })
     }
 }
-#[pyclass(module = "jmespath_rs", name = "Expr")]
+#[pyclass(module = "dictexprs", name = "Expr")]
 #[derive(Clone)]
 pub struct Expr {
     pub node: Node,
@@ -32,12 +35,23 @@ impl Expr {
     pub fn new() -> Self {
         Self { node: Node::This }
     }
-    pub fn __repr__(&self) -> String {
-        format!("Expr('{}')", self.node)
+
+    #[getter]
+    pub fn list(&self) -> ExprListNameSpace {
+        ExprListNameSpace { expr: self.clone() }
     }
-    pub fn to_jmespath(&self) -> String {
-        format!("{}", self.node)
+
+    #[getter]
+    pub fn str(&self) -> ExprStrNameSpace {
+        ExprStrNameSpace { expr: self.clone() }
     }
+
+    #[getter]
+    #[pyo3(name = "struct")]
+    pub fn struct_(&self) -> ExprStructNameSpace {
+        ExprStructNameSpace { expr: self.clone() }
+    }
+
     fn __getattr__(&self, name: String) -> Self {
         self.field(name)
     }
@@ -45,22 +59,6 @@ impl Expr {
     pub fn field(&self, name: String) -> Self {
         Self {
             node: Node::SubExpr(self.node.clone().into(), Node::Field(name).into()),
-        }
-    }
-
-    pub fn index(&self, i: isize) -> Self {
-        Self {
-            node: Node::SubExpr(self.node.clone().into(), Node::Index(i).into()),
-        }
-    }
-
-    #[pyo3(signature = (start=None, end=None, step=None))]
-    pub fn slice(&self, start: Option<isize>, end: Option<isize>, step: Option<isize>) -> Self {
-        Self {
-            node: Node::SubExpr(
-                self.node.clone().into(),
-                Node::Slice(start, end, step).into(),
-            ),
         }
     }
 
@@ -94,11 +92,7 @@ impl Expr {
             cond: cond.node.clone(),
         }
     }
-    pub fn flatten(&self) -> Self {
-        Self {
-            node: Node::Flatten(self.node.clone().into()),
-        }
-    }
+
     pub fn eq(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
             node: Node::CmpEq(self.node.clone().into(), into_node_lit(py, other)?.into()),
@@ -149,48 +143,6 @@ impl Expr {
     pub fn not_(&self) -> Self {
         Self {
             node: Node::Not(self.node.clone().into()),
-        }
-    }
-
-    pub fn length(&self) -> Self {
-        Self {
-            node: Node::Length(self.node.clone().into()),
-        }
-    }
-
-    pub fn sort(&self) -> Self {
-        Self {
-            node: Node::Sort(self.node.clone().into()),
-        }
-    }
-
-    pub fn keys(&self) -> Self {
-        Self {
-            node: Node::Keys(self.node.clone().into()),
-        }
-    }
-
-    pub fn values(&self) -> Self {
-        Self {
-            node: Node::Values(self.node.clone().into()),
-        }
-    }
-
-    pub fn to_array(&self) -> Self {
-        Self {
-            node: Node::ToArray(self.node.clone().into()),
-        }
-    }
-
-    pub fn to_string(&self) -> Self {
-        Self {
-            node: Node::ToString(self.node.clone().into()),
-        }
-    }
-
-    pub fn to_number(&self) -> Self {
-        Self {
-            node: Node::ToNumber(self.node.clone().into()),
         }
     }
 
@@ -253,30 +205,6 @@ impl Expr {
         }
     }
 
-    pub fn max(&self) -> Self {
-        Self {
-            node: Node::Max(self.node.clone().into()),
-        }
-    }
-
-    pub fn min(&self) -> Self {
-        Self {
-            node: Node::Min(self.node.clone().into()),
-        }
-    }
-
-    pub fn reverse(&self) -> Self {
-        Self {
-            node: Node::Reverse(self.node.clone().into()),
-        }
-    }
-
-    pub fn sum(&self) -> Self {
-        Self {
-            node: Node::Sum(self.node.clone().into()),
-        }
-    }
-
     #[pyo3(name = "dtype")]
     pub fn dtype(&self) -> Self {
         Self {
@@ -284,28 +212,16 @@ impl Expr {
         }
     }
 
-    pub fn contains(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            node: Node::Contains(self.node.clone().into(), into_node_lit(py, other)?.into()),
-        })
+    pub fn to_number(&self) -> Self {
+        Self {
+            node: Node::ToNumber(self.node.clone().into()),
+        }
     }
 
-    pub fn ends_with(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            node: Node::EndsWith(self.node.clone().into(), into_node_lit(py, other)?.into()),
-        })
-    }
-
-    pub fn starts_with(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            node: Node::StartsWith(self.node.clone().into(), into_node_lit(py, other)?.into()),
-        })
-    }
-
-    pub fn join(&self, py: Python<'_>, glue: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            node: Node::Join(into_node_lit(py, glue)?.into(), self.node.clone().into()),
-        })
+    pub fn to_string(&self) -> Expr {
+        Expr {
+            node: Node::ToString(self.node.clone().into()),
+        }
     }
     pub fn search(&self, py: Python<'_>, data: PyObject) -> PyResult<PyObject> {
         eval::eval_any(py, &self.node, data.bind(py)).map(|result| result.unbind())
@@ -313,7 +229,7 @@ impl Expr {
 }
 
 #[pyfunction]
-pub fn field(name: String) -> Expr {
+pub fn key(name: String) -> Expr {
     Expr {
         node: Node::Field(name).into(),
     }
@@ -361,6 +277,6 @@ pub fn lit(value: &Bound<'_, PyAny>) -> Expr {
 }
 
 #[pyfunction]
-pub fn identity() -> Expr {
+pub fn element() -> Expr {
     Expr::new()
 }
