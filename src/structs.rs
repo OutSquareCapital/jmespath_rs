@@ -11,7 +11,10 @@ pub struct ExprStructNameSpace {
 impl ExprStructNameSpace {
     pub fn field(&self, name: String) -> Expr {
         Expr {
-            node: Node::SubExpr(self.expr.node.clone().into(), Node::Field(name).into()),
+            node: Node::Field {
+                base: Box::new(self.expr.node.clone()),
+                name,
+            },
         }
     }
 

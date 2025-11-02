@@ -47,7 +47,10 @@ pub fn into_node(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<Node> {
         return Ok(expr.node.clone());
     }
     if let Ok(s) = obj.extract::<String>() {
-        return Ok(Node::Field(s));
+        return Ok(Node::Field {
+            base: Box::new(Node::This),
+            name: s,
+        });
     }
     Ok(Node::Literal(PyObjectWrapper(obj.to_object(py))))
 }
@@ -61,12 +64,22 @@ pub fn into_node_lit(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<Node> {
 #[derive(Debug, Clone)]
 pub enum Node {
     This,
-    Field(String),
-    Index(isize),
-    Slice(Option<isize>, Option<isize>, Option<isize>),
     Literal(PyObjectWrapper),
+    Field {
+        base: Box<Node>,
+        name: String,
+    },
+    Index {
+        base: Box<Node>,
+        index: isize,
+    },
+    Slice {
+        base: Box<Node>,
+        start: Option<isize>,
+        end: Option<isize>,
+        step: Option<isize>,
+    },
 
-    SubExpr(Box<Node>, Box<Node>),
     MultiList(Vec<Node>),
     MultiDict(Vec<(String, Node)>),
     Flatten(Box<Node>),

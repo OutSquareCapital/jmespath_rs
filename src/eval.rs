@@ -15,10 +15,14 @@ pub fn eval_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Resu
     match node {
         Node::This => Ok(value.clone()),
         Node::Literal(obj) => eval_literal(py, obj),
-        Node::Field(name) => eval_field(py, value, name),
-        Node::Index(i) => eval_index(py, value, i),
-        Node::Slice(start, end, step) => eval_slice(py, value, start, end, step),
-        Node::SubExpr(lhs, rhs) => eval_pipe(py, value, lhs, rhs),
+        Node::Field { base, name } => eval_field(py, value, base, name),
+        Node::Index { base, index } => eval_index(py, value, base, index),
+        Node::Slice {
+            base,
+            start,
+            end,
+            step,
+        } => eval_slice(py, value, base, start, end, step),
         Node::MultiList(items) => eval_multi_list(py, value, items),
         Node::MultiDict(items) => eval_multi_dict(py, value, items),
         Node::Flatten(inner) => eval_flatten(py, value, inner),
@@ -63,9 +67,10 @@ fn eval_literal<'py>(py: Python<'py>, obj: &PyObjectWrapper) -> Result<'py> {
     Ok(obj.0.clone_ref(py).into_bound(py).into_any())
 }
 
-fn eval_field<'py>(py: Python<'py>, value: &Bounded<'py>, name: &str) -> Result<'py> {
-    if is_object(value) {
-        let d = value.downcast::<PyDict>()?;
+fn eval_field<'py>(py: Python<'py>, value: &Bounded<'py>, base: &Node, name: &str) -> Result<'py> {
+    let base_val = eval_any(py, base, value)?;
+    if is_object(&base_val) {
+        let d = base_val.downcast::<PyDict>()?;
         Ok(d.get_item(name)?
             .unwrap_or_else(|| py.None().into_bound(py)))
     } else {
@@ -73,8 +78,8 @@ fn eval_field<'py>(py: Python<'py>, value: &Bounded<'py>, name: &str) -> Result<
     }
 }
 
-fn eval_index<'py>(py: Python<'py>, value: &Bounded<'py>, i: &isize) -> Result<'py> {
-    if let Ok(seq) = value.downcast::<PySequence>() {
+fn eval_index<'py>(py: Python<'py>, value: &Bounded<'py>, base: &Node, i: &isize) -> Result<'py> {
+    if let Ok(seq) = eval_any(py, base, value)?.downcast::<PySequence>() {
         let len = seq.len()? as isize;
         let idx = if *i < 0 { len + *i } else { *i };
         if idx < 0 || idx >= len {
@@ -90,26 +95,23 @@ fn eval_index<'py>(py: Python<'py>, value: &Bounded<'py>, i: &isize) -> Result<'
 fn eval_slice<'py>(
     py: Python<'py>,
     value: &Bounded<'py>,
+    base: &Node,
     start: &Option<isize>,
     end: &Option<isize>,
     step: &Option<isize>,
 ) -> Result<'py> {
-    if is_list(value) {
+    let base_val = eval_any(py, base, value)?;
+    if is_list(&base_val) {
         let s = PySlice::new_bound(
             py,
             start.unwrap_or(0),
             end.unwrap_or(isize::MAX),
             step.unwrap_or(1),
         );
-        Ok(value.get_item(s)?.into_any())
+        Ok(base_val.get_item(s)?.into_any())
     } else {
         Ok(py.None().into_bound(py))
     }
-}
-
-fn eval_pipe<'py>(py: Python<'py>, value: &Bounded<'py>, lhs: &Node, rhs: &Node) -> Result<'py> {
-    let mid = eval_any(py, lhs, value)?;
-    eval_any(py, rhs, &mid)
 }
 
 fn eval_multi_list<'py>(py: Python<'py>, value: &Bounded<'py>, items: &[Node]) -> Result<'py> {

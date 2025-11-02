@@ -41,7 +41,10 @@ impl Expr {
 
     pub fn field(&self, name: String) -> Self {
         Self {
-            node: Node::SubExpr(self.node.clone().into(), Node::Field(name).into()),
+            node: Node::Field {
+                base: Box::new(self.node.clone()),
+                name,
+            },
         }
     }
 
@@ -165,7 +168,10 @@ impl Expr {
 #[pyfunction]
 pub fn key(name: String) -> Expr {
     Expr {
-        node: Node::Field(name).into(),
+        node: Node::Field {
+            base: Box::new(Node::This),
+            name,
+        },
     }
 }
 

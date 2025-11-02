@@ -11,17 +11,22 @@ pub struct ExprListNameSpace {
 impl ExprListNameSpace {
     pub fn get(&self, i: isize) -> Expr {
         Expr {
-            node: Node::SubExpr(self.expr.node.clone().into(), Node::Index(i).into()),
+            node: Node::Index {
+                base: Box::new(self.expr.node.clone()),
+                index: i,
+            },
         }
     }
 
     #[pyo3(signature = (start=None, end=None, step=None))]
     pub fn slice(&self, start: Option<isize>, end: Option<isize>, step: Option<isize>) -> Expr {
         Expr {
-            node: Node::SubExpr(
-                self.expr.node.clone().into(),
-                Node::Slice(start, end, step).into(),
-            ),
+            node: Node::Slice {
+                base: Box::new(self.expr.node.clone()),
+                start,
+                end,
+                step,
+            },
         }
     }
 

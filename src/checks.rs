@@ -7,7 +7,7 @@ pub fn is_list(v: &Bound<'_, PyAny>) -> bool {
 }
 #[inline]
 pub fn is_sized(v: &Bound<'_, PyAny>) -> bool {
-    unsafe { pyo3::ffi::PySequence_Check(v.as_ptr()) == 1 }
+    v.len().is_ok()
 }
 #[inline]
 pub fn is_object(v: &Bound<'_, PyAny>) -> bool {
