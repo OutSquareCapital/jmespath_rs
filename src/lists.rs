@@ -1,5 +1,5 @@
 use crate::exprs::Expr;
-use crate::nodes::{into_node, Node};
+use crate::nodes::{into_node, into_node_lit, Node};
 use pyo3::prelude::*;
 
 #[pyclass(module = "dictexprs", name = "ExprListNameSpace")]
@@ -38,7 +38,7 @@ impl ExprListNameSpace {
 
     pub fn reverse(&self) -> Expr {
         Expr {
-            node: Node::Reverse(self.expr.node.clone().into()),
+            node: Node::ListReverse(self.expr.node.clone().into()),
         }
     }
 
@@ -79,7 +79,6 @@ impl ExprListNameSpace {
     }
 
     pub fn join(&self, py: Python<'_>, glue: &Bound<'_, PyAny>) -> PyResult<Expr> {
-        use crate::nodes::into_node_lit;
         Ok(Expr {
             node: Node::Join(
                 into_node_lit(py, glue)?.into(),
@@ -98,9 +97,8 @@ impl ExprListNameSpace {
     }
 
     pub fn contains(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Expr> {
-        use crate::nodes::into_node_lit;
         Ok(Expr {
-            node: Node::Contains(
+            node: Node::ListContains(
                 self.expr.node.clone().into(),
                 into_node_lit(py, other)?.into(),
             ),
