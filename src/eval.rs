@@ -72,8 +72,9 @@ fn eval_literal<'py>(py: Python<'py>, obj: &PyObjectWrapper) -> Result<'py> {
 fn eval_field<'py>(py: Python<'py>, value: &Bounded<'py>, base: &Node, name: &str) -> Result<'py> {
     let base_val = eval_any(py, base, value)?;
     if is_object(&base_val) {
-        let d = base_val.downcast::<PyDict>()?;
-        Ok(d.get_item(name)?
+        Ok(base_val
+            .downcast::<PyDict>()?
+            .get_item(name)?
             .unwrap_or_else(|| py.None().into_bound(py)))
     } else {
         Ok(py.None().into_bound(py))
@@ -104,13 +105,14 @@ fn eval_slice<'py>(
 ) -> Result<'py> {
     let base_val = eval_any(py, base, value)?;
     if is_list(&base_val) {
-        let s = PySlice::new_bound(
-            py,
-            start.unwrap_or(0),
-            end.unwrap_or(isize::MAX),
-            step.unwrap_or(1),
-        );
-        Ok(base_val.get_item(s)?.into_any())
+        Ok(base_val
+            .get_item(PySlice::new_bound(
+                py,
+                start.unwrap_or(0),
+                end.unwrap_or(isize::MAX),
+                step.unwrap_or(1),
+            ))?
+            .into_any())
     } else {
         Ok(py.None().into_bound(py))
     }
@@ -171,8 +173,7 @@ fn eval_filter_projection<'py>(
     let out = PyList::empty_bound(py);
     for i in 0..seq.len()? {
         let el = seq.get_item(i)?;
-        let c = eval_any(py, cond, &el)?;
-        if c.is_truthy()? {
+        if eval_any(py, cond, &el)?.is_truthy()? {
             out.append(eval_any(py, then, &el)?)?;
         }
     }
@@ -205,8 +206,7 @@ fn eval_not<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py>
 fn eval_length<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'py> {
     let xv = eval_any(py, x, value)?;
     if is_sized(&xv) {
-        let n = xv.len()?;
-        Ok((n as i64).to_object(py).into_bound(py).into_any())
+        Ok((xv.len()? as i64).to_object(py).into_bound(py).into_any())
     } else {
         Ok(py.None().into_bound(py))
     }
