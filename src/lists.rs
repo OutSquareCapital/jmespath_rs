@@ -107,4 +107,14 @@ impl ExprListNameSpace {
             node: Node::ToArray(self.expr.node.clone().into()),
         }
     }
+
+    pub fn filter(&self, py: Python<'_>, cond: &Bound<'_, PyAny>) -> PyResult<Expr> {
+        Ok(Expr {
+            node: Node::FilterProjection {
+                base: self.expr.node.clone().into(),
+                then: Node::This.into(),
+                cond: into_node(py, cond)?.into(),
+            },
+        })
+    }
 }

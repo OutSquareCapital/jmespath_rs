@@ -5,24 +5,7 @@ use crate::strings::ExprStrNameSpace;
 use crate::structs::ExprStructNameSpace;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-#[pyclass(module = "dictexprs", name = "FilteredExpr")]
-pub struct FilteredExpr {
-    base: Node,
-    cond: Node,
-}
 
-#[pymethods]
-impl FilteredExpr {
-    pub fn then(&self, py: Python<'_>, then: &Bound<'_, PyAny>) -> PyResult<Expr> {
-        Ok(Expr {
-            node: Node::FilterProjection {
-                base: self.base.clone().into(),
-                then: into_node(py, then)?.into(),
-                cond: self.cond.clone().into(),
-            },
-        })
-    }
-}
 #[pyclass(module = "dictexprs", name = "Expr")]
 #[derive(Clone)]
 pub struct Expr {
@@ -84,13 +67,6 @@ impl Expr {
                 rhs: into_node(py, rhs)?.into(),
             },
         })
-    }
-
-    pub fn filter(&self, cond: &Expr) -> FilteredExpr {
-        FilteredExpr {
-            base: self.node.clone(),
-            cond: cond.node.clone(),
-        }
     }
 
     pub fn eq(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
