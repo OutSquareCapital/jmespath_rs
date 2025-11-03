@@ -1,6 +1,6 @@
 use crate::eval;
 use crate::lists::ExprListNameSpace;
-use crate::nodes::{into_node, into_node_lit, Node, PyObjectWrapper};
+use crate::nodes::{into_node_lit, Node, PyObjectWrapper};
 use crate::strings::ExprStrNameSpace;
 use crate::structs::ExprStructNameSpace;
 use pyo3::prelude::*;
@@ -33,19 +33,6 @@ impl Expr {
     #[pyo3(name = "struct")]
     pub fn struct_(&self) -> ExprStructNameSpace {
         ExprStructNameSpace { expr: self.clone() }
-    }
-
-    fn __getattr__(&self, name: String) -> Self {
-        self.field(name)
-    }
-
-    pub fn field(&self, name: String) -> Self {
-        Self {
-            node: Node::Field {
-                base: Box::new(self.node.clone()),
-                name,
-            },
-        }
     }
 
     pub fn eq(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
@@ -101,50 +88,9 @@ impl Expr {
         }
     }
 
-    pub fn map(&self, py: Python<'_>, expr: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            node: Node::MapApply {
-                base: self.node.clone().into(),
-                key: into_node(py, expr)?.into(),
-            },
-        })
-    }
-
-    pub fn sort_by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            node: Node::SortBy {
-                base: self.node.clone().into(),
-                key: into_node(py, key)?.into(),
-            },
-        })
-    }
-
-    pub fn min_by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            node: Node::MinBy {
-                base: self.node.clone().into(),
-                key: into_node(py, key)?.into(),
-            },
-        })
-    }
-
-    pub fn max_by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            node: Node::MaxBy {
-                base: self.node.clone().into(),
-                key: into_node(py, key)?.into(),
-            },
-        })
-    }
     pub fn abs(&self) -> Self {
         Self {
             node: Node::Abs(self.node.clone().into()),
-        }
-    }
-
-    pub fn avg(&self) -> Self {
-        Self {
-            node: Node::Avg(self.node.clone().into()),
         }
     }
 

@@ -87,7 +87,7 @@ impl ExprListNameSpace {
         })
     }
 
-    pub fn eval(&self, py: Python<'_>, expr: &Bound<'_, PyAny>) -> PyResult<Expr> {
+    pub fn map(&self, py: Python<'_>, expr: &Bound<'_, PyAny>) -> PyResult<Expr> {
         Ok(Expr {
             node: Node::MapApply {
                 base: self.expr.node.clone().into(),
@@ -111,6 +111,33 @@ impl ExprListNameSpace {
                 base: self.expr.node.clone().into(),
                 then: Node::This.into(),
                 cond: into_node(py, cond)?.into(),
+            },
+        })
+    }
+
+    pub fn sort_by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Expr> {
+        Ok(Expr {
+            node: Node::SortBy {
+                base: self.expr.node.clone().into(),
+                key: into_node(py, key)?.into(),
+            },
+        })
+    }
+
+    pub fn min_by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Expr> {
+        Ok(Expr {
+            node: Node::MinBy {
+                base: self.expr.node.clone().into(),
+                key: into_node(py, key)?.into(),
+            },
+        })
+    }
+
+    pub fn max_by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Expr> {
+        Ok(Expr {
+            node: Node::MaxBy {
+                base: self.expr.node.clone().into(),
+                key: into_node(py, key)?.into(),
             },
         })
     }
