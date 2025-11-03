@@ -5,6 +5,9 @@ use pyo3::{
     PyObject,
 };
 use std::fmt;
+pub type EvalResult<'py> = PyResult<Bound<'py, PyAny>>;
+pub type Bounded<'py> = Bound<'py, PyAny>;
+
 pub struct PyObjectWrapper(pub PyObject);
 
 impl Clone for PyObjectWrapper {
