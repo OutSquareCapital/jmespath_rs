@@ -21,7 +21,7 @@ impl ExprListNameSpace {
     #[pyo3(signature = (start=None, end=None, step=None))]
     pub fn slice(&self, start: Option<isize>, end: Option<isize>, step: Option<isize>) -> Expr {
         Expr {
-            node: Node::Slice {
+            node: Node::ListSlice {
                 base: Box::new(self.expr.node.clone()),
                 start,
                 end,
@@ -107,10 +107,9 @@ impl ExprListNameSpace {
 
     pub fn filter(&self, py: Python<'_>, cond: &Bound<'_, PyAny>) -> PyResult<Expr> {
         Ok(Expr {
-            node: Node::FilterProjection {
+            node: Node::Filter {
                 base: self.expr.node.clone().into(),
-                then: Node::This.into(),
-                cond: into_node(py, cond)?.into(),
+                condition: into_node(py, cond)?.into(),
             },
         })
     }

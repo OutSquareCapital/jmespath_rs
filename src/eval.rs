@@ -17,18 +17,22 @@ pub fn eval_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Resu
         Node::Literal(obj) => eval_literal(py, obj),
         Node::Field { base, name } => eval_field(py, value, base, name),
         Node::Index { base, index } => eval_index(py, value, base, index),
-        Node::Slice {
+        Node::ListSlice {
             base,
             start,
             end,
             step,
-        } => eval_slice(py, value, base, start, end, step),
+        } => eval_list_slice(py, value, base, start, end, step),
+        Node::StrSlice {
+            base,
+            start,
+            end,
+            step,
+        } => eval_str_slice(py, value, base, start, end, step),
         Node::MultiList(items) => eval_multi_list(py, value, items),
         Node::MultiDict(items) => eval_multi_dict(py, value, items),
         Node::Flatten(inner) => eval_flatten(py, value, inner),
-        Node::FilterProjection { base, then, cond } => {
-            eval_filter_projection(py, value, base, then, cond)
-        }
+        Node::Filter { base, condition } => eval_filter(py, value, base, condition),
         Node::And(a, b) => eval_and(py, value, a, b),
         Node::Or(a, b) => eval_or(py, value, a, b),
         Node::Not(x) => eval_not(py, value, x),
@@ -95,7 +99,7 @@ fn eval_index<'py>(py: Python<'py>, value: &Bounded<'py>, base: &Node, i: &isize
     }
 }
 
-fn eval_slice<'py>(
+fn eval_list_slice<'py>(
     py: Python<'py>,
     value: &Bounded<'py>,
     base: &Node,
@@ -105,6 +109,29 @@ fn eval_slice<'py>(
 ) -> Result<'py> {
     let base_evaluated = eval_any(py, base, value)?;
     if !is_list(&base_evaluated) {
+        return Ok(py.None().into_bound(py));
+    }
+
+    Ok(base_evaluated
+        .get_item(PySlice::new_bound(
+            py,
+            start.unwrap_or(0),
+            end.unwrap_or(isize::MAX),
+            step.unwrap_or(1),
+        ))?
+        .into_any())
+}
+
+fn eval_str_slice<'py>(
+    py: Python<'py>,
+    value: &Bounded<'py>,
+    base: &Node,
+    start: &Option<isize>,
+    end: &Option<isize>,
+    step: &Option<isize>,
+) -> Result<'py> {
+    let base_evaluated = eval_any(py, base, value)?;
+    if !is_string(&base_evaluated) {
         return Ok(py.None().into_bound(py));
     }
 
@@ -161,12 +188,11 @@ fn eval_flatten<'py>(py: Python<'py>, value: &Bounded<'py>, inner: &Node) -> Res
     Ok(output.into_any())
 }
 
-fn eval_filter_projection<'py>(
+fn eval_filter<'py>(
     py: Python<'py>,
     value: &Bounded<'py>,
     base: &Node,
-    then: &Node,
-    cond: &Node,
+    condition: &Node,
 ) -> Result<'py> {
     let base_evaluated = eval_any(py, base, value)?;
     if !is_list(&base_evaluated) {
@@ -178,8 +204,8 @@ fn eval_filter_projection<'py>(
 
     for i in 0..sequence.len()? {
         let element = sequence.get_item(i)?;
-        if eval_any(py, cond, &element)?.is_truthy()? {
-            output.append(eval_any(py, then, &element)?)?;
+        if eval_any(py, condition, &element)?.is_truthy()? {
+            output.append(element)?;
         }
     }
 

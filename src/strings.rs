@@ -40,4 +40,15 @@ impl ExprStrNameSpace {
             ),
         })
     }
+    #[pyo3(signature = (start=None, end=None, step=None))]
+    pub fn slice(&self, start: Option<isize>, end: Option<isize>, step: Option<isize>) -> Expr {
+        Expr {
+            node: Node::StrSlice {
+                base: Box::new(self.expr.node.clone()),
+                start,
+                end,
+                step,
+            },
+        }
+    }
 }

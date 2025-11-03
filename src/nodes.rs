@@ -73,7 +73,13 @@ pub enum Node {
         base: Box<Node>,
         index: isize,
     },
-    Slice {
+    ListSlice {
+        base: Box<Node>,
+        start: Option<isize>,
+        end: Option<isize>,
+        step: Option<isize>,
+    },
+    StrSlice {
         base: Box<Node>,
         start: Option<isize>,
         end: Option<isize>,
@@ -83,10 +89,9 @@ pub enum Node {
     MultiList(Vec<Node>),
     MultiDict(Vec<(String, Node)>),
     Flatten(Box<Node>),
-    FilterProjection {
+    Filter {
         base: Box<Node>,
-        then: Box<Node>,
-        cond: Box<Node>,
+        condition: Box<Node>,
     },
     And(Box<Node>, Box<Node>),
     Or(Box<Node>, Box<Node>),
