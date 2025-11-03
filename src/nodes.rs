@@ -74,6 +74,7 @@ pub enum Node {
     Str(Box<Node>, StrOp),
     Struct(Box<Node>, StructOp),
     Scalar(Box<Node>, ScalarOp),
+    Compare(Box<Node>, ComparisonOp),
 }
 
 #[derive(Debug, Clone)]
@@ -125,6 +126,10 @@ pub enum ScalarOp {
     Abs,
     Ceil,
     Floor,
+}
+
+#[derive(Debug, Clone)]
+pub enum ComparisonOp {
     Eq(Box<Node>),
     Ne(Box<Node>),
     Lt(Box<Node>),

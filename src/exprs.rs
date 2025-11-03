@@ -1,6 +1,6 @@
 use crate::eval;
 use crate::lists::ExprListNameSpace;
-use crate::nodes::{into_node_lit, Node, PyObjectWrapper, ScalarOp, StructOp};
+use crate::nodes::{into_node_lit, ComparisonOp, Node, PyObjectWrapper, ScalarOp, StructOp};
 use crate::strings::ExprStrNameSpace;
 use crate::structs::ExprStructNameSpace;
 use pyo3::prelude::*;
@@ -37,54 +37,54 @@ impl Expr {
 
     pub fn eq(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::Scalar(
+            node: Node::Compare(
                 self.node.clone().into(),
-                ScalarOp::Eq(into_node_lit(py, other)?.into()),
+                ComparisonOp::Eq(into_node_lit(py, other)?.into()),
             ),
         })
     }
 
     pub fn ne(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::Scalar(
+            node: Node::Compare(
                 self.node.clone().into(),
-                ScalarOp::Ne(into_node_lit(py, other)?.into()),
+                ComparisonOp::Ne(into_node_lit(py, other)?.into()),
             ),
         })
     }
 
     pub fn lt(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::Scalar(
+            node: Node::Compare(
                 self.node.clone().into(),
-                ScalarOp::Lt(into_node_lit(py, other)?.into()),
+                ComparisonOp::Lt(into_node_lit(py, other)?.into()),
             ),
         })
     }
 
     pub fn le(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::Scalar(
+            node: Node::Compare(
                 self.node.clone().into(),
-                ScalarOp::Le(into_node_lit(py, other)?.into()),
+                ComparisonOp::Le(into_node_lit(py, other)?.into()),
             ),
         })
     }
 
     pub fn gt(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::Scalar(
+            node: Node::Compare(
                 self.node.clone().into(),
-                ScalarOp::Gt(into_node_lit(py, other)?.into()),
+                ComparisonOp::Gt(into_node_lit(py, other)?.into()),
             ),
         })
     }
 
     pub fn ge(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::Scalar(
+            node: Node::Compare(
                 self.node.clone().into(),
-                ScalarOp::Ge(into_node_lit(py, other)?.into()),
+                ComparisonOp::Ge(into_node_lit(py, other)?.into()),
             ),
         })
     }

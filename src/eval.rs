@@ -1,5 +1,5 @@
 use crate::checks::*;
-use crate::nodes::{ListOp, Node, PyObjectWrapper, ScalarOp, StrOp, StructOp};
+use crate::nodes::{ComparisonOp, ListOp, Node, PyObjectWrapper, ScalarOp, StrOp, StructOp};
 use pyo3::basic::CompareOp;
 use pyo3::prelude::*;
 use pyo3::types::*;
@@ -22,82 +22,108 @@ pub fn eval_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Resu
         Node::NotNull(items) => eval_not_null(py, value, items),
         Node::Length(x) => eval_length(py, value, x),
         Node::Merge(items) => eval_merge(py, value, items),
-        Node::List(base, op) => eval_list_op(py, value, base, op),
-        Node::Str(base, op) => eval_str_op(py, value, base, op),
-        Node::Struct(base, op) => eval_struct_op(py, value, base, op),
-        Node::Scalar(base, op) => eval_scalar_op(py, value, base, op),
+        Node::List(base, op) => {
+            let base_evaluated = eval_any(py, base, value)?;
+            if !is_list(&base_evaluated) {
+                return Ok(py.None().into_bound(py));
+            }
+            eval_list_op(py, value, &base_evaluated, op)
+        }
+        Node::Str(base, op) => {
+            let base_evaluated = eval_any(py, base, value)?;
+            if !is_string(&base_evaluated) {
+                return Ok(py.None().into_bound(py));
+            }
+            eval_str_op(py, value, &base_evaluated, op)
+        }
+        Node::Struct(base, op) => {
+            let base_evaluated = eval_any(py, base, value)?;
+            if !is_object(&base_evaluated) {
+                return Ok(py.None().into_bound(py));
+            }
+            eval_struct_op(py, value, &base_evaluated, op)
+        }
+        Node::Scalar(base, op) => {
+            let base_evaluated = eval_any(py, base, value)?;
+            if !is_number(&base_evaluated) {
+                return Ok(py.None().into_bound(py));
+            }
+            eval_scalar_op(py, &base_evaluated, op)
+        }
+        Node::Compare(base, op) => eval_comparison_op(py, value, base, op),
     }
 }
 
 fn eval_list_op<'py>(
     py: Python<'py>,
     value: &Bounded<'py>,
-    base: &Node,
+    list: &Bounded<'py>,
     op: &ListOp,
 ) -> Result<'py> {
-    let base_evaluated = eval_any(py, base, value)?;
-    if !is_list(&base_evaluated) {
-        return Ok(py.None().into_bound(py));
-    }
-
     match op {
-        ListOp::Index(i) => eval_index(py, &base_evaluated, *i),
-        ListOp::Slice { start, end, step } => {
-            eval_list_slice(py, &base_evaluated, start, end, step)
-        }
-        ListOp::Reverse => eval_list_reverse(py, &base_evaluated),
-        ListOp::Flatten => eval_flatten(py, &base_evaluated),
+        ListOp::Index(i) => eval_list_index(py, list, *i),
+        ListOp::Slice { start, end, step } => eval_list_slice(py, list, start, end, step),
+        ListOp::Reverse => eval_list_reverse(py, list),
+        ListOp::Flatten => eval_list_flatten(py, list),
         ListOp::Contains(search_node) => {
             let search = eval_any(py, search_node, value)?;
-            eval_list_contains(py, &base_evaluated, &search)
+            eval_list_contains(py, list, &search)
         }
-        ListOp::Join(glue_node) => eval_join(py, &eval_any(py, glue_node, value)?, &base_evaluated),
-        ListOp::Filter(cond) => eval_filter(py, &base_evaluated, cond),
-        ListOp::Map(key) => eval_map(py, &base_evaluated, key),
-        ListOp::Sort => eval_sort(py, &base_evaluated),
-        ListOp::Max => eval_min_max(py, &base_evaluated, true),
-        ListOp::Min => eval_min_max(py, &base_evaluated, false),
-        ListOp::Sum => eval_sum(py, &base_evaluated),
-        ListOp::Avg => eval_avg(py, &base_evaluated),
-        ListOp::SortBy(key) => eval_sort_by(py, &base_evaluated, key),
-        ListOp::MinBy(key) => eval_min_by(py, &base_evaluated, key),
-        ListOp::MaxBy(key) => eval_max_by(py, &base_evaluated, key),
+        ListOp::Join(glue_node) => eval_list_join(py, &eval_any(py, glue_node, value)?, list),
+        ListOp::Filter(cond) => eval_list_filter(py, list, cond),
+        ListOp::Map(key) => eval_list_map(py, list, key),
+        ListOp::Sort => eval_list_sort(py, list),
+        ListOp::Max => eval_list_min_max(py, list, true),
+        ListOp::Min => eval_list_min_max(py, list, false),
+        ListOp::Sum => eval_list_sum(py, list),
+        ListOp::Avg => eval_list_avg(py, list),
+        ListOp::SortBy(key) => eval_list_sort_by(py, list, key),
+        ListOp::MinBy(key) => eval_list_min_by(py, list, key),
+        ListOp::MaxBy(key) => eval_list_max_by(py, list, key),
     }
 }
 
-fn eval_scalar_op<'py>(
+fn eval_scalar_op<'py>(py: Python<'py>, number: &Bounded<'py>, op: &ScalarOp) -> Result<'py> {
+    match op {
+        ScalarOp::Abs => eval_abs(py, number),
+        ScalarOp::Ceil => eval_ceil(py, number),
+        ScalarOp::Floor => eval_floor(py, number),
+    }
+}
+
+fn eval_comparison_op<'py>(
     py: Python<'py>,
     value: &Bounded<'py>,
     base: &Node,
-    op: &ScalarOp,
+    op: &ComparisonOp,
 ) -> Result<'py> {
     let base_evaluated = eval_any(py, base, value)?;
-
     match op {
-        ScalarOp::Abs => eval_abs(py, &base_evaluated),
-        ScalarOp::Ceil => eval_ceil(py, &base_evaluated),
-        ScalarOp::Floor => eval_floor(py, &base_evaluated),
-        ScalarOp::Eq(other_node) => eval_eq(py, &base_evaluated, &eval_any(py, other_node, value)?),
-        ScalarOp::Ne(other_node) => eval_ne(py, &base_evaluated, &eval_any(py, other_node, value)?),
-        ScalarOp::Lt(other_node) => cmp_bool(
+        ComparisonOp::Eq(other_node) => {
+            eval_eq(py, &base_evaluated, &eval_any(py, other_node, value)?)
+        }
+        ComparisonOp::Ne(other_node) => {
+            eval_ne(py, &base_evaluated, &eval_any(py, other_node, value)?)
+        }
+        ComparisonOp::Lt(other_node) => cmp_bool(
             py,
             &base_evaluated,
             &eval_any(py, other_node, value)?,
             CompareOp::Lt,
         ),
-        ScalarOp::Le(other_node) => cmp_bool(
+        ComparisonOp::Le(other_node) => cmp_bool(
             py,
             &base_evaluated,
             &eval_any(py, other_node, value)?,
             CompareOp::Le,
         ),
-        ScalarOp::Gt(other_node) => cmp_bool(
+        ComparisonOp::Gt(other_node) => cmp_bool(
             py,
             &base_evaluated,
             &eval_any(py, other_node, value)?,
             CompareOp::Gt,
         ),
-        ScalarOp::Ge(other_node) => cmp_bool(
+        ComparisonOp::Ge(other_node) => cmp_bool(
             py,
             &base_evaluated,
             &eval_any(py, other_node, value)?,
@@ -106,40 +132,36 @@ fn eval_scalar_op<'py>(
     }
 }
 
-fn eval_str_op<'py>(py: Python<'py>, value: &Bounded<'py>, base: &Node, op: &StrOp) -> Result<'py> {
-    let base_evaluated = eval_any(py, base, value)?;
-    if !is_string(&base_evaluated) {
-        return Ok(py.None().into_bound(py));
-    }
-
+fn eval_str_op<'py>(
+    py: Python<'py>,
+    value: &Bounded<'py>,
+    string: &Bounded<'py>,
+    op: &StrOp,
+) -> Result<'py> {
     match op {
-        StrOp::Slice { start, end, step } => eval_str_slice(py, &base_evaluated, start, end, step),
-        StrOp::Reverse => eval_str_reverse(py, &base_evaluated),
+        StrOp::Slice { start, end, step } => eval_str_slice(py, string, start, end, step),
+        StrOp::Reverse => eval_str_reverse(py, string),
         StrOp::Contains(search_node) => {
-            eval_str_contains(py, &base_evaluated, &eval_any(py, search_node, value)?)
+            eval_str_contains(py, string, &eval_any(py, search_node, value)?)
         }
         StrOp::StartsWith(prefix_node) => {
-            eval_starts_with(py, &base_evaluated, &eval_any(py, prefix_node, value)?)
+            eval_starts_with(py, string, &eval_any(py, prefix_node, value)?)
         }
         StrOp::EndsWith(suffix_node) => {
-            eval_ends_with(py, &base_evaluated, &eval_any(py, suffix_node, value)?)
+            eval_ends_with(py, string, &eval_any(py, suffix_node, value)?)
         }
     }
 }
 fn eval_struct_op<'py>(
     py: Python<'py>,
-    value: &Bounded<'py>,
-    base: &Node,
+    _value: &Bounded<'py>,
+    dict: &Bounded<'py>,
     op: &StructOp,
 ) -> Result<'py> {
-    let base_evaluated = eval_any(py, base, value)?;
-    if !is_object(&base_evaluated) {
-        return Ok(py.None().into_bound(py));
-    }
     match op {
-        StructOp::Field(name) => eval_field(py, &base_evaluated, name),
-        StructOp::Keys => eval_keys(&base_evaluated),
-        StructOp::Values => eval_values(&base_evaluated),
+        StructOp::Field(name) => eval_field(py, dict, name),
+        StructOp::Keys => eval_keys(dict),
+        StructOp::Values => eval_values(dict),
     }
 }
 
@@ -154,7 +176,7 @@ fn eval_field<'py>(py: Python<'py>, dict: &Bounded<'py>, name: &str) -> Result<'
         .unwrap_or_else(|| py.None().into_bound(py)))
 }
 
-fn eval_index<'py>(py: Python<'py>, list: &Bounded<'py>, i: isize) -> Result<'py> {
+fn eval_list_index<'py>(py: Python<'py>, list: &Bounded<'py>, i: isize) -> Result<'py> {
     let seq = list.downcast::<PySequence>()?;
     let len = seq.len()? as isize;
     let idx = if i < 0 { len + i } else { i };
@@ -219,7 +241,7 @@ fn eval_multi_dict<'py>(
     Ok(out.into_any())
 }
 
-fn eval_flatten<'py>(py: Python<'py>, list: &Bounded<'py>) -> Result<'py> {
+fn eval_list_flatten<'py>(py: Python<'py>, list: &Bounded<'py>) -> Result<'py> {
     let list_py = list.downcast::<PyList>()?;
     let output = PyList::empty_bound(py);
 
@@ -237,7 +259,7 @@ fn eval_flatten<'py>(py: Python<'py>, list: &Bounded<'py>) -> Result<'py> {
     Ok(output.into_any())
 }
 
-fn eval_filter<'py>(py: Python<'py>, list: &Bounded<'py>, cond: &Node) -> Result<'py> {
+fn eval_list_filter<'py>(py: Python<'py>, list: &Bounded<'py>, cond: &Node) -> Result<'py> {
     let sequence = list.downcast::<PySequence>()?;
     let output = PyList::empty_bound(py);
 
@@ -284,7 +306,7 @@ fn eval_length<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> Result<'
     Ok(length.to_object(py).into_bound(py).into_any())
 }
 
-fn eval_sort<'py>(py: Python<'py>, list: &Bounded<'py>) -> Result<'py> {
+fn eval_list_sort<'py>(py: Python<'py>, list: &Bounded<'py>) -> Result<'py> {
     Ok(py.import_bound(BUILTINS)?.getattr(SORTED)?.call1((list,))?)
 }
 fn eval_keys<'py>(dict: &Bounded<'py>) -> Result<'py> {
@@ -295,7 +317,7 @@ fn eval_values<'py>(dict: &Bounded<'py>) -> Result<'py> {
     Ok(dict.downcast::<PyDict>()?.values().into_any())
 }
 
-fn eval_map<'py>(py: Python<'py>, list: &Bounded<'py>, key: &Node) -> Result<'py> {
+fn eval_list_map<'py>(py: Python<'py>, list: &Bounded<'py>, key: &Node) -> Result<'py> {
     let sequence = list.downcast::<PySequence>()?;
     let output = PyList::empty_bound(py);
 
@@ -327,7 +349,7 @@ enum SortKind {
     MaxBy,
 }
 
-fn eval_sort_like<'py>(
+fn eval_list_sort_like<'py>(
     py: Python<'py>,
     list: &Bounded<'py>,
     key: &Node,
@@ -395,11 +417,8 @@ fn eval_sort_like<'py>(
         }
     }
 }
-fn eval_abs<'py>(py: Python<'py>, value: &Bounded<'py>) -> Result<'py> {
-    if !is_number(value) {
-        return Ok(py.None().into_bound(py));
-    }
-    Ok(value
+fn eval_abs<'py>(py: Python<'py>, number: &Bounded<'py>) -> Result<'py> {
+    Ok(number
         .extract::<f64>()?
         .abs()
         .to_object(py)
@@ -407,7 +426,7 @@ fn eval_abs<'py>(py: Python<'py>, value: &Bounded<'py>) -> Result<'py> {
         .into_any())
 }
 
-fn eval_avg<'py>(py: Python<'py>, list: &Bounded<'py>) -> Result<'py> {
+fn eval_list_avg<'py>(py: Python<'py>, list: &Bounded<'py>) -> Result<'py> {
     let sequence = list.downcast::<PySequence>()?;
     let length = sequence.len()?;
 
@@ -427,19 +446,13 @@ fn eval_avg<'py>(py: Python<'py>, list: &Bounded<'py>) -> Result<'py> {
     let average = sum / (length as f64);
     Ok(average.to_object(py).into_bound(py).into_any())
 }
-fn eval_ceil<'py>(py: Python<'py>, value: &Bounded<'py>) -> Result<'py> {
-    if !is_number(value) {
-        return Ok(py.None().into_bound(py));
-    }
-    let result = value.extract::<f64>()?.ceil();
+fn eval_ceil<'py>(py: Python<'py>, number: &Bounded<'py>) -> Result<'py> {
+    let result = number.extract::<f64>()?.ceil();
     Ok(result.to_object(py).into_bound(py).into_any())
 }
 
-fn eval_floor<'py>(py: Python<'py>, value: &Bounded<'py>) -> Result<'py> {
-    if !is_number(value) {
-        return Ok(py.None().into_bound(py));
-    }
-    let result = value.extract::<f64>()?.floor();
+fn eval_floor<'py>(py: Python<'py>, number: &Bounded<'py>) -> Result<'py> {
+    let result = number.extract::<f64>()?.floor();
     Ok(result.to_object(py).into_bound(py).into_any())
 }
 
@@ -507,7 +520,7 @@ fn eval_ends_with<'py>(
         .ends_with(suffix.extract::<&str>()?);
     Ok(result.to_object(py).into_bound(py).into_any())
 }
-fn eval_join<'py>(py: Python<'py>, glue: &Bounded<'py>, list: &Bounded<'py>) -> Result<'py> {
+fn eval_list_join<'py>(py: Python<'py>, glue: &Bounded<'py>, list: &Bounded<'py>) -> Result<'py> {
     let glue_str = glue.extract::<&str>()?;
     let sequence = list.downcast::<PySequence>()?;
     let length = sequence.len()?;
@@ -523,7 +536,7 @@ fn eval_join<'py>(py: Python<'py>, glue: &Bounded<'py>, list: &Bounded<'py>) -> 
 
     Ok(PyString::new_bound(py, &parts.join(glue_str)).into_any())
 }
-fn eval_min_max<'py>(py: Python<'py>, list: &Bounded<'py>, is_max: bool) -> Result<'py> {
+fn eval_list_min_max<'py>(py: Python<'py>, list: &Bounded<'py>, is_max: bool) -> Result<'py> {
     let sequence = list.downcast::<PySequence>()?;
     let length = sequence.len()?;
 
@@ -596,7 +609,7 @@ fn eval_str_reverse<'py>(py: Python<'py>, string: &Bounded<'py>) -> Result<'py> 
     Ok(PyString::new_bound(py, &reversed).into_any())
 }
 
-fn eval_sum<'py>(py: Python<'py>, list: &Bounded<'py>) -> Result<'py> {
+fn eval_list_sum<'py>(py: Python<'py>, list: &Bounded<'py>) -> Result<'py> {
     let sequence = list.downcast::<PySequence>()?;
     let length = sequence.len()?;
 
@@ -616,16 +629,16 @@ fn eval_sum<'py>(py: Python<'py>, list: &Bounded<'py>) -> Result<'py> {
     Ok(sum.to_object(py).into_bound(py).into_any())
 }
 
-fn eval_sort_by<'py>(py: Python<'py>, list: &Bounded<'py>, key: &Node) -> Result<'py> {
-    eval_sort_like(py, list, key, SortKind::SortBy)
+fn eval_list_sort_by<'py>(py: Python<'py>, list: &Bounded<'py>, key: &Node) -> Result<'py> {
+    eval_list_sort_like(py, list, key, SortKind::SortBy)
 }
 
-fn eval_min_by<'py>(py: Python<'py>, list: &Bounded<'py>, key: &Node) -> Result<'py> {
-    eval_sort_like(py, list, key, SortKind::MinBy)
+fn eval_list_min_by<'py>(py: Python<'py>, list: &Bounded<'py>, key: &Node) -> Result<'py> {
+    eval_list_sort_like(py, list, key, SortKind::MinBy)
 }
 
-fn eval_max_by<'py>(py: Python<'py>, list: &Bounded<'py>, key: &Node) -> Result<'py> {
-    eval_sort_like(py, list, key, SortKind::MaxBy)
+fn eval_list_max_by<'py>(py: Python<'py>, list: &Bounded<'py>, key: &Node) -> Result<'py> {
+    eval_list_sort_like(py, list, key, SortKind::MaxBy)
 }
 fn eval_eq<'py>(py: Python<'py>, left: &Bounded<'py>, right: &Bounded<'py>) -> Result<'py> {
     Ok(is_eq(left, right)?.to_object(py).into_bound(py).into_any())
