@@ -67,6 +67,7 @@ def run_checks():
 
 def run_benchs(config: BenchmarkConfig) -> None:
     print(f"Lancement des benchmarks (Runs par test: {config.runs})\n")
+
     results: list[BenchmarkResult] = []
     for size in config.data_sizes:
         data = generate_db(size)

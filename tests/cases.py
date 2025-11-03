@@ -40,8 +40,15 @@ class Case:
             jmespath.search(self.jmes_query, data),
         ).assert_equal(self.jmes_query)
 
+    def warmup(self, data: DataBase, compiled: Any) -> None:
+        for _ in range(20):
+            self.dx_query.search(data)
+        for _ in range(20):
+            compiled.search(data)
+
     def to_result(self, size: int, runs: int, data: DataBase) -> BenchmarkResult:
         compiled = jmespath.compile(self.jmes_query)
+        self.warmup(data, compiled)
 
         timings_dx: list[float] = []
         for _ in range(runs):
@@ -67,7 +74,7 @@ class Case:
 
 @dataclass(slots=True)
 class CasesBuilder:
-    cases: list[Case] = field(default_factory=list)
+    cases: list[Case] = field(default_factory=list[Case])
 
     def add(self, dx_query: dx.Expr, jmes_query: str) -> Self:
         self.cases.append(Case(dx_query, jmes_query))
@@ -193,6 +200,10 @@ def build_cases() -> list[Case]:
         .add(
             users.list.map(dx.not_null(dx.field("MISSING"), dx.field("name"))),
             "users[*].not_null(MISSING, name)",
+        )
+        .add(
+            users.list.map(dx.field("age")).list.sum().abs(),
+            "abs(sum(users[*].age))",
         )
         .get()
     )

@@ -1,12 +1,18 @@
+# type: ignore
 from typing import Any
 import random
 from typing import TypedDict, NamedTuple
 
 from enum import StrEnum, auto
-from factory import base, Sequence, LazyAttribute, DictFactory
+from factory import base
+from factory.base import DictFactory
+from factory.declarations import Sequence, LazyAttribute
 from faker import Faker
 
 type Table = list[dict[str, Any]]
+SEED = 42
+random.seed(SEED)
+Faker.seed(SEED)
 
 
 class BenchmarkResult(NamedTuple):
