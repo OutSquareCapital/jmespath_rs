@@ -4,7 +4,7 @@ import jmespath
 from typing import Any
 import statistics
 import math
-import jmespath_rs as qd
+import dictexprs as dx
 from dataclasses import dataclass, field
 from typing import Self
 
@@ -30,24 +30,25 @@ class CheckResult:
 
 @dataclass(slots=True, frozen=True)
 class Case:
-    qd_query: qd.Expr
+    dx_query: dx.Expr
+    jmes_query: str
 
     def check(self, data: DataBase) -> None:
         """Checks the query against the provided data."""
         CheckResult(
-            self.qd_query.search(data),
-            jmespath.search(self.qd_query.to_jmespath(), data),
-        ).assert_equal(self.qd_query.to_jmespath())
+            self.dx_query.search(data),
+            jmespath.search(self.jmes_query, data),
+        ).assert_equal(self.jmes_query)
 
     def to_result(self, size: int, runs: int, data: DataBase) -> BenchmarkResult:
-        compiled = jmespath.compile(self.qd_query.to_jmespath())
+        compiled = jmespath.compile(self.jmes_query)
 
-        timings_qd: list[float] = []
+        timings_dx: list[float] = []
         for _ in range(runs):
             start = time.perf_counter()
-            self.qd_query.search(data)
+            self.dx_query.search(data)
             end = time.perf_counter()
-            timings_qd.append(end - start)
+            timings_dx.append(end - start)
 
         timings_jp: list[float] = []
         for _ in range(runs):
@@ -58,8 +59,8 @@ class Case:
 
         return BenchmarkResult(
             size=size,
-            query=self.qd_query.to_jmespath(),
-            qrydict=statistics.median(timings_qd),
+            query=self.jmes_query,
+            qrydict=statistics.median(timings_dx),
             jmespth=statistics.median(timings_jp),
         )
 
@@ -68,8 +69,8 @@ class Case:
 class CasesBuilder:
     cases: list[Case] = field(default_factory=list)
 
-    def add(self, qd_query: qd.Expr) -> Self:
-        self.cases.append(Case(qd_query))
+    def add(self, dx_query: dx.Expr, jmes_query: str) -> Self:
+        self.cases.append(Case(dx_query, jmes_query))
         return self
 
     def get(self) -> list[Case]:
@@ -77,83 +78,144 @@ class CasesBuilder:
 
 
 def build_cases() -> list[Case]:
+    elem = dx.Expr()
     return (
         CasesBuilder()
-        .add(qd.field("users").project("name"))
-        .add(qd.field("users").vproject("address"))
-        .add(qd.field("users").pipe(qd.identity().length()))
+        .add(dx.key("users").list.map(dx.key("name")), "users[*].name")
+        .add(dx.key("users").list.map(dx.key("address")), "users[*].address")
+        .add(elem.struct.field("users").list.lengths(), "users | length(@)")
         .add(
-            qd.field("users")
-            .filter(qd.identity().age.ge(30).and_(qd.identity().active.eq(True)))
-            .then(qd.identity().name)
-        )
-        .add(
-            qd.select_dict(
-                names=qd.field("users").project("name"),
-                count=qd.field("users").length(),
+            dx.key("users")
+            .list.filter(
+                elem.struct.field("age")
+                .ge(30)
+                .and_(elem.struct.field("active").eq(True))
             )
+            .list.map(dx.key("name")),
+            "users[?(age >= `30` && active == `true`)].name",
         )
-        .add(qd.field("users").length())
-        .add(qd.field("users").project("name").map(qd.identity().length()))
-        .add(qd.field("users").min_by("age"))
-        .add(qd.field("users").sort_by("age").project("name"))
         .add(
-            qd.field("users")
-            .filter(
-                qd.identity()
-                .age.gt(40)
-                .and_(qd.identity().active.eq(True))
-                .and_(qd.identity().category.contains("VIP"))
+            dx.select_dict(
+                names=dx.key("users").list.map(dx.key("name")),
+                count=dx.key("users").list.lengths(),
+            ),
+            '{"names": users[*].name, "count": length(users)}',
+        )
+        .add(dx.key("users").list.lengths(), "length(users)")
+        .add(
+            dx.key("users").list.map(dx.key("name")).list.map(elem.list.lengths()),
+            "map(&length(@), users[*].name)",
+        )
+        .add(dx.key("users").list.min_by(dx.key("age")), "min_by(users, &age)")
+        .add(
+            dx.key("users").list.sort_by(dx.key("age")).list.map(dx.key("name")),
+            "sort_by(users, &age)[*].name",
+        )
+        .add(
+            dx.key("users")
+            .list.filter(
+                elem.struct.field("age")
+                .gt(40)
+                .and_(elem.struct.field("active").eq(True))
+                .and_(elem.struct.field("category").list.contains(dx.lit("VIP")))
             )
-            .then("name")
-            .sort()
+            .list.map(dx.key("name"))
+            .list.sort(),
+            'sort(users[?((age > `40` && active == `true`) && contains(category, `"VIP"`))].name)',
         )
-        .add(qd.field("users").project("category").flatten())
-        .add(qd.field("users").max_by("age"))
-        .add(qd.field("users").project("category").flatten().sort())
-        .add(qd.field("users").project("age").map(qd.identity().abs()))
-        .add(qd.field("users").project("age").avg())
-        .add(qd.field("users").project("age").map(qd.identity().ceil()))
-        .add(qd.field("users").project("age").map(qd.identity().floor()))
-        .add(qd.field("users").project("age").max())
-        .add(qd.field("users").project("age").min())
-        .add(qd.field("users").project("age").reverse())
-        .add(qd.field("users").project("age").sum())
-        .add(qd.field("users").project(qd.identity().address.city))
-        .add(qd.field("users").project("name").length())
         .add(
-            qd.select_list(
-                qd.field("users").slice(0, 10), qd.field("users").slice(-10, None)
-            )
+            dx.key("users").list.map(dx.key("category")).list.flatten(),
+            "users[*].category[]",
         )
-        .add(qd.field("users").project("age").eq(30))
-        .add(qd.field("users").project("active").eq(True))
+        .add(dx.key("users").list.max_by(dx.key("age")), "max_by(users, &age)")
         .add(
-            qd.field("users")
-            .project("age")
+            dx.key("users")
+            .list.map(elem.struct.field("category").list.flatten())
+            .list.flatten()
+            .list.sort(),
+            "sort(users[*].category[])",
+        )
+        .add(
+            dx.key("users").list.map(elem.struct.field("age").abs()),
+            "map(&abs(@), users[*].age)",
+        )
+        .add(dx.key("users").list.map(dx.key("age")).list.avg(), "avg(users[*].age)")
+        .add(
+            dx.key("users").list.map(elem.struct.field("age").ceil()),
+            "map(&ceil(@), users[*].age)",
+        )
+        .add(
+            dx.key("users").list.map(elem.struct.field("age").floor()),
+            "map(&floor(@), users[*].age)",
+        )
+        .add(dx.key("users").list.map(dx.key("age")).list.max(), "max(users[*].age)")
+        .add(dx.key("users").list.map(dx.key("age")).list.min(), "min(users[*].age)")
+        .add(
+            dx.key("users").list.map(dx.key("age")).list.reverse(),
+            "reverse(users[*].age)",
+        )
+        .add(dx.key("users").list.map(dx.key("age")).list.sum(), "sum(users[*].age)")
+        .add(
+            dx.key("users").list.map(elem.struct.field("address").struct.field("city")),
+            "users[*].address.city",
+        )
+        .add(
+            dx.key("users").list.map(dx.key("name")).list.lengths(),
+            "length(users[*].name)",
+        )
+        .add(
+            dx.select_list(
+                dx.key("users").list.slice(0, 10), dx.key("users").list.slice(-10, None)
+            ),
+            "[users[0:10], users[-10:]]",
+        )
+        .add(
+            dx.key("users").list.map(elem.struct.field("age").eq(30)).list.get(0),
+            "users[*].age == `30`",
+        )
+        .add(
+            dx.key("users")
+            .list.map(dx.key("age"))
             .gt(1)
-            .and_(qd.field("users").project("age").eq(5).not_())
-            .or_(0)
+            .and_(dx.key("users").list.map(dx.key("age")).eq(5).not_())
+            .or_(0),
+            "((users[*].age > `1` && !(users[*].age == `5`)) || `0`)",
         )
-        .add(qd.field("users").project(qd.identity().keys()))
-        .add(qd.field("users").project(qd.identity().to_array()))
-        .add(qd.field("users").project(qd.identity().to_string()))
-        .add(qd.field("users").project(qd.identity().values()))
-        .add(qd.field("users").project(qd.identity().dtype()))
-        .add(qd.field("users").project(qd.identity().category.contains("VIP")))
-        .add(qd.field("users").project(qd.identity().category.join(", ")))
+        .add(dx.key("users").list.map(elem.struct.keys()), "users[*].keys(@)")
+        .add(dx.key("users").list.map(elem.struct.values()), "users[*].values(@)")
         .add(
-            qd.field("users").project(
-                qd.merge(qd.identity(), qd.lit({"extra_field": 1}))
-            )
+            dx.key("users").list.map(
+                elem.struct.field("category").list.contains(dx.lit("VIP"))
+            ),
+            'users[*].contains(category, `"VIP"`)',
         )
-        .add(qd.field("users").project(qd.identity().age.to_string().to_number()))
-        .add(qd.field("users").project(qd.identity().name.ends_with("s")))
-        .add(qd.field("users").project(qd.identity().name.starts_with("A")))
         .add(
-            qd.field("users").project(
-                qd.not_null(qd.identity().field("MISSING"), qd.identity().name)
-            )
+            dx.key("users").list.map(
+                elem.struct.field("category").list.join(dx.lit(", "))
+            ),
+            'users[*].join(`", "`, category)',
+        )
+        .add(
+            dx.key("users").list.map(dx.merge(elem, dx.lit({"extra_field": 1}))),
+            'users[*].merge(@, `{"extra_field":1}`)',
+        )
+        .add(
+            dx.key("users").list.map(
+                elem.struct.field("name").str.ends_with(dx.lit("s"))
+            ),
+            'users[*].ends_with(name, `"s"`)',
+        )
+        .add(
+            dx.key("users").list.map(
+                elem.struct.field("name").str.starts_with(dx.lit("A"))
+            ),
+            'users[*].starts_with(name, `"A"`)',
+        )
+        .add(
+            dx.key("users").list.map(
+                dx.not_null(elem.struct.field("MISSING"), elem.struct.field("name"))
+            ),
+            "users[*].not_null(MISSING, name)",
         )
         .get()
     )
