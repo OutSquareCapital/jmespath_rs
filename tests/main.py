@@ -16,5 +16,5 @@ def run(config: BenchmarkConfig = CONFIG) -> None:
 
 
 if __name__ == "__main__":
-    dt.run_on_file(Path().joinpath("jmespath_rs").with_suffix(".pyi"))
+    dt.run_on_file(Path().joinpath("dictexprs").with_suffix(".pyi"))
     run()

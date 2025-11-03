@@ -60,8 +60,7 @@ fn match_list_op<'py>(
         ListOp::Reverse => eval::list_reverse(py, list),
         ListOp::Flatten => eval::list_flatten(py, list),
         ListOp::Contains(search_node) => {
-            let search = match_any(py, search_node, value)?;
-            eval::list_contains(py, list, &search)
+            eval::list_contains(py, list, &match_any(py, search_node, value)?)
         }
         ListOp::Join(glue_node) => eval::list_join(py, &match_any(py, glue_node, value)?, list),
         ListOp::Filter(cond) => eval::list_filter(py, list, cond),
