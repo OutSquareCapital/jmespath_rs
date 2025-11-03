@@ -47,10 +47,7 @@ pub fn into_node(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<Node> {
         return Ok(expr.node.clone());
     }
     if let Ok(s) = obj.extract::<String>() {
-        return Ok(Node::Field {
-            base: Box::new(Node::This),
-            name: s,
-        });
+        return Ok(Node::Struct(Box::new(Node::This), StructOp::Field(s)));
     }
     Ok(Node::Literal(PyObjectWrapper(obj.to_object(py))))
 }
@@ -65,77 +62,73 @@ pub fn into_node_lit(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<Node> {
 pub enum Node {
     This,
     Literal(PyObjectWrapper),
-    Field {
-        base: Box<Node>,
-        name: String,
-    },
-    Index {
-        base: Box<Node>,
-        index: isize,
-    },
-    ListSlice {
-        base: Box<Node>,
-        start: Option<isize>,
-        end: Option<isize>,
-        step: Option<isize>,
-    },
-    StrSlice {
-        base: Box<Node>,
-        start: Option<isize>,
-        end: Option<isize>,
-        step: Option<isize>,
-    },
-
-    MultiList(Vec<Node>),
-    MultiDict(Vec<(String, Node)>),
-    Flatten(Box<Node>),
-    Filter {
-        base: Box<Node>,
-        condition: Box<Node>,
-    },
     And(Box<Node>, Box<Node>),
     Or(Box<Node>, Box<Node>),
     Not(Box<Node>),
-    Abs(Box<Node>),
-    Avg(Box<Node>),
-    Ceil(Box<Node>),
-    ListContains(Box<Node>, Box<Node>),
-    StrContains(Box<Node>, Box<Node>),
-    EndsWith(Box<Node>, Box<Node>),
-    Floor(Box<Node>),
-    Join(Box<Node>, Box<Node>),
-    Max(Box<Node>),
-    Merge(Vec<Node>),
-    Min(Box<Node>),
     NotNull(Vec<Node>),
-    ListReverse(Box<Node>),
-    StrReverse(Box<Node>),
-    StartsWith(Box<Node>, Box<Node>),
-    Sum(Box<Node>),
-    CmpEq(Box<Node>, Box<Node>),
-    CmpNe(Box<Node>, Box<Node>),
-    CmpLt(Box<Node>, Box<Node>),
-    CmpLe(Box<Node>, Box<Node>),
-    CmpGt(Box<Node>, Box<Node>),
-    CmpGe(Box<Node>, Box<Node>),
     Length(Box<Node>),
-    Sort(Box<Node>),
-    Keys(Box<Node>),
-    Values(Box<Node>),
-    MapApply {
-        base: Box<Node>,
-        key: Box<Node>,
+    MultiList(Vec<Node>),
+    MultiDict(Vec<(String, Node)>),
+    Merge(Vec<Node>),
+    List(Box<Node>, ListOp),
+    Str(Box<Node>, StrOp),
+    Struct(Box<Node>, StructOp),
+    Scalar(Box<Node>, ScalarOp),
+}
+
+#[derive(Debug, Clone)]
+pub enum ListOp {
+    Index(isize),
+    Slice {
+        start: Option<isize>,
+        end: Option<isize>,
+        step: Option<isize>,
     },
-    SortBy {
-        base: Box<Node>,
-        key: Box<Node>,
+    Reverse,
+    Flatten,
+    Contains(Box<Node>),
+    Filter(Box<Node>),
+    Map(Box<Node>),
+    Join(Box<Node>),
+    Sort,
+    Max,
+    Min,
+    Sum,
+    Avg,
+    SortBy(Box<Node>),
+    MinBy(Box<Node>),
+    MaxBy(Box<Node>),
+}
+
+#[derive(Debug, Clone)]
+pub enum StrOp {
+    Slice {
+        start: Option<isize>,
+        end: Option<isize>,
+        step: Option<isize>,
     },
-    MinBy {
-        base: Box<Node>,
-        key: Box<Node>,
-    },
-    MaxBy {
-        base: Box<Node>,
-        key: Box<Node>,
-    },
+    Reverse,
+    Contains(Box<Node>),
+    StartsWith(Box<Node>),
+    EndsWith(Box<Node>),
+}
+
+#[derive(Debug, Clone)]
+pub enum StructOp {
+    Field(String),
+    Keys,
+    Values,
+}
+
+#[derive(Debug, Clone)]
+pub enum ScalarOp {
+    Abs,
+    Ceil,
+    Floor,
+    Eq(Box<Node>),
+    Ne(Box<Node>),
+    Lt(Box<Node>),
+    Le(Box<Node>),
+    Gt(Box<Node>),
+    Ge(Box<Node>),
 }

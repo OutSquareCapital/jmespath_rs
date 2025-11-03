@@ -1,6 +1,6 @@
 use crate::eval;
 use crate::lists::ExprListNameSpace;
-use crate::nodes::{into_node_lit, Node, PyObjectWrapper};
+use crate::nodes::{into_node_lit, Node, PyObjectWrapper, ScalarOp, StructOp};
 use crate::strings::ExprStrNameSpace;
 use crate::structs::ExprStructNameSpace;
 use pyo3::prelude::*;
@@ -37,37 +37,55 @@ impl Expr {
 
     pub fn eq(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::CmpEq(self.node.clone().into(), into_node_lit(py, other)?.into()),
+            node: Node::Scalar(
+                self.node.clone().into(),
+                ScalarOp::Eq(into_node_lit(py, other)?.into()),
+            ),
         })
     }
 
     pub fn ne(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::CmpNe(self.node.clone().into(), into_node_lit(py, other)?.into()),
+            node: Node::Scalar(
+                self.node.clone().into(),
+                ScalarOp::Ne(into_node_lit(py, other)?.into()),
+            ),
         })
     }
 
     pub fn lt(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::CmpLt(self.node.clone().into(), into_node_lit(py, other)?.into()),
+            node: Node::Scalar(
+                self.node.clone().into(),
+                ScalarOp::Lt(into_node_lit(py, other)?.into()),
+            ),
         })
     }
 
     pub fn le(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::CmpLe(self.node.clone().into(), into_node_lit(py, other)?.into()),
+            node: Node::Scalar(
+                self.node.clone().into(),
+                ScalarOp::Le(into_node_lit(py, other)?.into()),
+            ),
         })
     }
 
     pub fn gt(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::CmpGt(self.node.clone().into(), into_node_lit(py, other)?.into()),
+            node: Node::Scalar(
+                self.node.clone().into(),
+                ScalarOp::Gt(into_node_lit(py, other)?.into()),
+            ),
         })
     }
 
     pub fn ge(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
-            node: Node::CmpGe(self.node.clone().into(), into_node_lit(py, other)?.into()),
+            node: Node::Scalar(
+                self.node.clone().into(),
+                ScalarOp::Ge(into_node_lit(py, other)?.into()),
+            ),
         })
     }
     pub fn and_(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
@@ -90,19 +108,19 @@ impl Expr {
 
     pub fn abs(&self) -> Self {
         Self {
-            node: Node::Abs(self.node.clone().into()),
+            node: Node::Scalar(self.node.clone().into(), ScalarOp::Abs),
         }
     }
 
     pub fn ceil(&self) -> Self {
         Self {
-            node: Node::Ceil(self.node.clone().into()),
+            node: Node::Scalar(self.node.clone().into(), ScalarOp::Ceil),
         }
     }
 
     pub fn floor(&self) -> Self {
         Self {
-            node: Node::Floor(self.node.clone().into()),
+            node: Node::Scalar(self.node.clone().into(), ScalarOp::Floor),
         }
     }
 
@@ -114,10 +132,7 @@ impl Expr {
 #[pyfunction]
 pub fn key(name: String) -> Expr {
     Expr {
-        node: Node::Field {
-            base: Box::new(Node::This),
-            name,
-        },
+        node: Node::Struct(Box::new(Node::This), StructOp::Field(name)),
     }
 }
 
