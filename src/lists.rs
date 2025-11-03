@@ -67,7 +67,7 @@ impl ExprListNameSpace {
         }
     }
 
-    pub fn lengths(&self) -> Expr {
+    pub fn length(&self) -> Expr {
         Expr {
             node: Node::Length(self.expr.node.clone().into()),
         }

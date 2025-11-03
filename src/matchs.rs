@@ -8,8 +8,6 @@ pub fn match_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Eva
     match node {
         Node::This => Ok(value.clone()),
         Node::Literal(obj) => eval::literal(py, obj),
-        Node::MultiList(items) => eval::multi_list(py, value, items),
-        Node::MultiDict(items) => eval::multi_dict(py, value, items),
         Node::And(a, b) => eval::and(py, value, a, b),
         Node::Or(a, b) => eval::or(py, value, a, b),
         Node::Not(x) => eval::not(py, value, x),

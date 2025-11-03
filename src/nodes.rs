@@ -70,8 +70,6 @@ pub enum Node {
     Not(Box<Node>),
     NotNull(Vec<Node>),
     Length(Box<Node>),
-    MultiList(Vec<Node>),
-    MultiDict(Vec<(String, Node)>),
     Merge(Vec<Node>),
     List(Box<Node>, ListOp),
     Str(Box<Node>, StrOp),

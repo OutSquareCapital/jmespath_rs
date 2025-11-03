@@ -4,7 +4,6 @@ use crate::nodes::{into_node_lit, ComparisonOp, Node, PyObjectWrapper, ScalarOp,
 use crate::strings::ExprStrNameSpace;
 use crate::structs::ExprStructNameSpace;
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
 
 #[pyclass(module = "dictexprs", name = "Expr")]
 #[derive(Clone)]
@@ -128,35 +127,17 @@ impl Expr {
         match_any(py, &self.node, data.bind(py)).map(|result| result.unbind())
     }
 }
-
 #[pyfunction]
-pub fn key(name: String) -> Expr {
-    Expr {
-        node: Node::Struct(Box::new(Node::This), StructOp::Field(name)),
-    }
+#[pyo3(name = "struct")]
+pub fn struct_() -> ExprStructNameSpace {
+    ExprStructNameSpace { expr: Expr::new() }
+}
+#[pyfunction]
+#[pyo3(name = "list")]
+pub fn list() -> ExprListNameSpace {
+    ExprListNameSpace { expr: Expr::new() }
 }
 
-#[pyfunction(signature = (*args))]
-pub fn select_list(args: Vec<Expr>) -> Expr {
-    Expr {
-        node: Node::MultiList(args.into_iter().map(|q| q.node).collect()),
-    }
-}
-
-#[pyfunction(signature = (**kwargs))]
-pub fn select_dict(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
-    let mut items = Vec::new();
-
-    if let Some(dict) = kwargs {
-        for (key, value) in dict {
-            items.push((key.extract::<String>()?, into_node_lit(key.py(), &value)?));
-        }
-    }
-
-    Ok(Expr {
-        node: Node::MultiDict(items),
-    })
-}
 #[pyfunction(signature = (*args))]
 pub fn merge(args: Vec<Expr>) -> Expr {
     Expr {
@@ -180,4 +161,10 @@ pub fn lit(value: &Bound<'_, PyAny>) -> Expr {
 #[pyfunction]
 pub fn element() -> Expr {
     Expr::new()
+}
+#[pyfunction]
+pub fn field(name: String) -> Expr {
+    Expr {
+        node: Node::Struct(Box::new(Node::This), StructOp::Field(name)),
+    }
 }

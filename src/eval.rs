@@ -64,26 +64,6 @@ pub fn str_slice<'py>(
         .into_any())
 }
 
-pub fn multi_list<'py>(py: Python<'py>, value: &Bounded<'py>, items: &[Node]) -> EvalResult<'py> {
-    let out = PyList::empty_bound(py);
-    for it in items {
-        out.append(match_any(py, it, value)?)?;
-    }
-    Ok(out.into_any())
-}
-
-pub fn multi_dict<'py>(
-    py: Python<'py>,
-    value: &Bounded<'py>,
-    items: &[(String, Node)],
-) -> EvalResult<'py> {
-    let out = PyDict::new_bound(py);
-    for (k, expr) in items {
-        out.set_item(k, match_any(py, expr, value)?)?;
-    }
-    Ok(out.into_any())
-}
-
 pub fn list_flatten<'py>(py: Python<'py>, list: &Bounded<'py>) -> EvalResult<'py> {
     let list_py = list.downcast::<PyList>()?;
     let output = PyList::empty_bound(py);
