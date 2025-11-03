@@ -1,5 +1,5 @@
-use crate::eval;
 use crate::lists::ExprListNameSpace;
+use crate::matchs::match_any;
 use crate::nodes::{into_node_lit, ComparisonOp, Node, PyObjectWrapper, ScalarOp, StructOp};
 use crate::strings::ExprStrNameSpace;
 use crate::structs::ExprStructNameSpace;
@@ -125,7 +125,7 @@ impl Expr {
     }
 
     pub fn search(&self, py: Python<'_>, data: PyObject) -> PyResult<PyObject> {
-        eval::eval_any(py, &self.node, data.bind(py)).map(|result| result.unbind())
+        match_any(py, &self.node, data.bind(py)).map(|result| result.unbind())
     }
 }
 

@@ -4,6 +4,7 @@ mod checks;
 mod eval;
 mod exprs;
 mod lists;
+mod matchs;
 mod nodes;
 mod strings;
 mod structs;
