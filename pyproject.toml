@@ -14,7 +14,7 @@ dynamic = ["version"]
 [tool.maturin]
 features = ["pyo3/extension-module"]
 profile = "release"
-
+use-base-python = false
 [tool.uv.sources]
 doctester = { git = "https://github.com/OutSquareCapital/doctester.git" }
 
