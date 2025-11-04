@@ -88,19 +88,25 @@ class DataBase(TypedDict):
     tags: dict[str, int]
 
 
-def generate_db(n: int) -> DataBase:
-    users: Table = UserFactory.build_batch(n)
-    products: Table = ProductFactory.build_batch(20)
+def generate_db(users_nb: int, days: int) -> DataBase:
+    users: Table = UserFactory.build_batch(users_nb)
+    products: Table = ProductFactory.build_batch(5)
 
     return DataBase(
         users=users,
-        sales=_get_sales(users, products, n),
+        sales=_get_sales(users, products, users_nb, days),
         products=products,
         tags=Tags.to_dict(),
     )
 
 
-def _get_sales(users: Table, products: Table, n: int) -> Table:
-    return SaleRecordFactory.build_batch(
-        n * 2, customer=random.choice(users), product=random.choice(products)
-    )
+def _get_sales(
+    users: Table, products: Table, n: int, days: int
+) -> list[list[dict[str, Any]]]:
+    sales_per_day = []
+    for _ in range(days):
+        day_sales = SaleRecordFactory.build_batch(
+            n * 2, customer=random.choice(users), product=random.choice(products)
+        )
+        sales_per_day.append(day_sales)
+    return sales_per_day

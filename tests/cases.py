@@ -2,6 +2,8 @@ from tests.data import DataBase, BenchmarkResult
 import time
 import jmespath
 from typing import Any
+from pprint import pprint
+from collections.abc import Callable
 import statistics
 import math
 import dictexprs as dx
@@ -9,23 +11,21 @@ from dataclasses import dataclass, field
 from typing import Self
 
 
-@dataclass(slots=True)
-class CheckResult:
-    got: Any
-    want: Any
+def _check_equal(got: Any, want: Any) -> bool:
+    if isinstance(got, float) and isinstance(want, float):
+        return math.isclose(got, want)
+    else:
+        return got == want
 
-    def _check_equal(self) -> bool:
-        if isinstance(self.got, float) and isinstance(self.want, float):
-            return math.isclose(self.got, self.want)
-        else:
-            return self.got == self.want
 
-    def _on_error(self, jmes_query: str) -> str:
-        return f"Query: {jmes_query!r}\n  Got:   {self.got!r}\n  Want:  {self.want!r}"
+def _add_time(func: Callable[[Any], Any], data: Any) -> float:
+    start = time.perf_counter()
+    func(data)
+    return time.perf_counter() - start
 
-    def assert_equal(self, jmes_query: str) -> None:
-        assert self._check_equal(), self._on_error(jmes_query)
-        print(f"✔ {jmes_query}")
+
+def _get_perf(func: Callable[[Any], Any], data: Any, runs: int) -> float:
+    return statistics.median([_add_time(func, data) for _ in range(runs)])
 
 
 @dataclass(slots=True, frozen=True)
@@ -35,10 +35,29 @@ class Case:
 
     def check(self, data: DataBase) -> None:
         """Checks the query against the provided data."""
-        CheckResult(
-            self.dx_query.search(data),
-            jmespath.search(self.jmes_query, data),
-        ).assert_equal(self.jmes_query)
+        try:
+            dx_result = self.dx_query.search(data)
+        except Exception as dx_exc:
+            print(f"[dx] Exception: {dx_exc!r}")
+            try:
+                jmes_result = jmespath.search(self.jmes_query, data)
+                print(f"[jmes] {jmes_result!r}")
+            except Exception as jmes_exc:
+                print(f"[jmes] Exception: {jmes_exc!r}")
+                pprint(data, compact=True, sort_dicts=False)
+            raise
+        try:
+            jmes_result = jmespath.search(self.jmes_query, data)
+        except Exception as jmes_exc:
+            print(f"[dx] {dx_result!r}")
+            print(f"[jmes] Exception: {jmes_exc!r}")
+            pprint(data, compact=True, sort_dicts=False)
+            raise
+
+        assert _check_equal(dx_result, jmes_result), print(
+            f"Query: {self.jmes_query!r}\n  Got:   {dx_result!r}\n  Want:  {jmes_result!r}"
+        )
+        print(f"✔ {self.jmes_query}")
 
     def warmup(self, data: DataBase, compiled: Any) -> None:
         for _ in range(20):
@@ -49,26 +68,11 @@ class Case:
     def to_result(self, size: int, runs: int, data: DataBase) -> BenchmarkResult:
         compiled = jmespath.compile(self.jmes_query)
         self.warmup(data, compiled)
-
-        timings_dx: list[float] = []
-        for _ in range(runs):
-            start = time.perf_counter()
-            self.dx_query.search(data)
-            end = time.perf_counter()
-            timings_dx.append(end - start)
-
-        timings_jp: list[float] = []
-        for _ in range(runs):
-            start = time.perf_counter()
-            compiled.search(data)
-            end = time.perf_counter()
-            timings_jp.append(end - start)
-
         return BenchmarkResult(
             size=size,
             query=self.jmes_query,
-            qrydict=statistics.median(timings_dx),
-            jmespth=statistics.median(timings_jp),
+            qrydict=_get_perf(self.dx_query.search, data, runs),
+            jmespth=_get_perf(compiled.search, data, runs),
         )
 
 
@@ -139,10 +143,11 @@ def build_cases() -> list[Case]:
         )
         .add(users.list.max_by("age"), "max_by(users, &age)")
         .add(
-            users.list.map(dx.field("category").list.flatten())
+            users.list.map(dx.field("nested_scores"))
+            .list.flatten()
             .list.flatten()
             .list.sort(),
-            "sort(users[*].category[])",
+            "sort(users[*].nested_scores[][])",
         )
         .add(
             users.list.map(dx.field("age").abs()),
@@ -186,12 +191,14 @@ def build_cases() -> list[Case]:
         .add(users.list.map(dx.struct().keys()), "users[*].keys(@)")
         .add(users.list.map(dx.struct().values()), "users[*].values(@)")
         .add(
-            users.list.map(dx.field("category").list.contains("VIP")),
-            'users[*].contains(category, `"VIP"`)',
+            users.list.map(dx.field("nested_scores").list.flatten().list.contains(50)),
+            "users[*].contains(nested_scores[], `50`)",
         )
         .add(
-            users.list.map(dx.field("category").list.join(", ")),
-            'users[*].join(`", "`, category)',
+            users.list.map(
+                dx.field("nested_scores").list.flatten().list.flatten().list.join(", ")
+            ),
+            'users[*].join(", ", nested_scores[])',
         )
         .add(
             users.list.map(dx.merge(dx.element(), dx.lit({"extra_field": 1}))),

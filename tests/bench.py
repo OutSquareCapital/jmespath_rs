@@ -1,5 +1,5 @@
 from __future__ import annotations
-from tests.data import BenchmarkResult, generate_db
+from tests.data import BenchmarkResult, generate_db, DataBase
 from collections.abc import Iterator
 from tests.cases import CASES
 from typing import Any
@@ -41,6 +41,9 @@ class BenchmarkConfig:
             + "".join((self._add_row(row) for row in data))
         )
 
+    def get_data(self) -> dict[int, DataBase]:
+        return {size: generate_db(size, 5) for size in self.data_sizes}
+
 
 def _write_markdown_table(readme_path: Path, md: str):
     with open(readme_path, "r", encoding="utf-8") as f:
@@ -57,23 +60,20 @@ def _write_markdown_table(readme_path: Path, md: str):
         f.write(content)
 
 
-def run_checks():
+def run_checks(data: dict[int, DataBase]):
     print(f"Running {len(CASES)} benchmarks on sample data...")
-    data = generate_db(1)
     for case in CASES:
-        case.check(data)
+        case.check(data[1])
     print("All benchmark cases passed correctness checks.\n")
 
 
-def run_benchs(config: BenchmarkConfig) -> None:
+def run_benchs(config: BenchmarkConfig, data: dict[int, DataBase]) -> None:
     print(f"Lancement des benchmarks (Runs par test: {config.runs})\n")
 
     results: list[BenchmarkResult] = []
     for size in config.data_sizes:
-        data = generate_db(size)
-
         for case in CASES:
-            results.append(case.to_result(size, config.runs, data))
+            results.append(case.to_result(size, config.runs, data[size]))
 
     _write_markdown_table(
         README,
