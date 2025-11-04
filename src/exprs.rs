@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 #[pyclass(module = "dictexprs", name = "Expr")]
 #[derive(Clone)]
 pub struct Expr {
-    pub node: Node,
+    pub(crate) node: Node,
 }
 
 #[pymethods]

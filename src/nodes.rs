@@ -8,7 +8,7 @@ use std::fmt;
 pub type EvalResult<'py> = PyResult<Bound<'py, PyAny>>;
 pub type Bounded<'py> = Bound<'py, PyAny>;
 
-pub struct PyObjectWrapper(pub PyObject);
+pub(crate) struct PyObjectWrapper(pub PyObject);
 
 impl Clone for PyObjectWrapper {
     fn clone(&self) -> Self {
@@ -45,7 +45,7 @@ impl fmt::Debug for PyObjectWrapper {
     }
 }
 
-pub fn into_lit(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<Node> {
+pub(crate) fn into_lit(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<Node> {
     if let Ok(expr) = obj.extract::<PyRef<Expr>>() {
         return Ok(expr.node.clone());
     }
@@ -53,7 +53,7 @@ pub fn into_lit(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<Node> {
 }
 
 #[derive(Debug, Clone)]
-pub enum Node {
+pub(crate) enum Node {
     This,
     Literal(PyObjectWrapper),
     And(Box<Node>, Box<Node>),
@@ -70,7 +70,7 @@ pub enum Node {
 }
 
 #[derive(Debug, Clone)]
-pub enum ListOp {
+pub(crate) enum ListOp {
     Index(isize),
     Slice {
         start: Option<isize>,
@@ -94,7 +94,7 @@ pub enum ListOp {
 }
 
 #[derive(Debug, Clone)]
-pub enum StrOp {
+pub(crate) enum StrOp {
     Slice {
         start: Option<isize>,
         end: Option<isize>,
@@ -107,21 +107,21 @@ pub enum StrOp {
 }
 
 #[derive(Debug, Clone)]
-pub enum StructOp {
+pub(crate) enum StructOp {
     Field(String),
     Keys,
     Values,
 }
 
 #[derive(Debug, Clone)]
-pub enum ScalarOp {
+pub(crate) enum ScalarOp {
     Abs,
     Ceil,
     Floor,
 }
 
 #[derive(Debug, Clone)]
-pub enum ComparisonOp {
+pub(crate) enum ComparisonOp {
     Eq(Box<Node>),
     Ne(Box<Node>),
     Lt(Box<Node>),
