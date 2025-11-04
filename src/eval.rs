@@ -436,7 +436,7 @@ pub fn merge<'py>(py: Python<'py>, value: &Bounded<'py>, items: &[Node]) -> Eval
     Ok(output.into_any())
 }
 
-pub fn not_null<'py>(py: Python<'py>, value: &Bounded<'py>, items: &[Node]) -> EvalResult<'py> {
+pub fn coalesce<'py>(py: Python<'py>, value: &Bounded<'py>, items: &[Node]) -> EvalResult<'py> {
     for item in items {
         let evaluated = match_any(py, item, value)?;
         if !evaluated.is_none() {

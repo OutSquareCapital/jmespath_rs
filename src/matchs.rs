@@ -12,7 +12,7 @@ pub fn match_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Eva
         Node::And(a, b) => eval::and(py, value, a, b),
         Node::Or(a, b) => eval::or(py, value, a, b),
         Node::Not(x) => eval::not(py, value, x),
-        Node::NotNull(items) => eval::not_null(py, value, items),
+        Node::Coalesce(items) => eval::coalesce(py, value, items),
         Node::Length(x) => eval::length(py, value, x),
         Node::Merge(items) => eval::merge(py, value, items),
         Node::List(base, op) => {

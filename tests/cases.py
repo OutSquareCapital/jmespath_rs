@@ -220,7 +220,7 @@ def build_cases() -> list[Case]:
             'users[*].starts_with(name, `"A"`)',
         )
         .add(
-            users.list.map(dx.not_null(dx.field("MISSING"), dx.field("name"))),
+            users.list.map(dx.coalesce(dx.field("MISSING"), dx.field("name"))),
             "users[*].not_null(MISSING, name)",
         )
         .add(

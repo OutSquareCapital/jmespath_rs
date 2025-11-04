@@ -146,9 +146,9 @@ pub fn merge(args: Vec<Expr>) -> Expr {
 }
 
 #[pyfunction(signature = (*args))]
-pub fn not_null(args: Vec<Expr>) -> Expr {
+pub fn coalesce(args: Vec<Expr>) -> Expr {
     Expr {
-        node: Node::NotNull(args.into_iter().map(|q| q.node).collect()),
+        node: Node::Coalesce(args.into_iter().map(|q| q.node).collect()),
     }
 }
 #[pyfunction]

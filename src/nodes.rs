@@ -59,7 +59,7 @@ pub enum Node {
     And(Box<Node>, Box<Node>),
     Or(Box<Node>, Box<Node>),
     Not(Box<Node>),
-    NotNull(Vec<Node>),
+    Coalesce(Vec<Node>),
     Length(Box<Node>),
     Merge(Vec<Node>),
     List(Box<Node>, ListOp),

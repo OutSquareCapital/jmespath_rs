@@ -16,7 +16,7 @@ fn dictexprs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(xp::lit, m)?)?;
     m.add_function(wrap_pyfunction!(xp::element, m)?)?;
     m.add_function(wrap_pyfunction!(xp::merge, m)?)?;
-    m.add_function(wrap_pyfunction!(xp::not_null, m)?)?;
+    m.add_function(wrap_pyfunction!(xp::coalesce, m)?)?;
     m.add_function(wrap_pyfunction!(xp::struct_, m)?)?;
     m.add_function(wrap_pyfunction!(xp::list, m)?)?;
     m.add_function(wrap_pyfunction!(xp::field, m)?)?;
