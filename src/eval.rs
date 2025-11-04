@@ -95,7 +95,7 @@ pub mod list {
     }
 
     pub fn sort<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
-        Ok(py.import_bound(BUILTINS)?.getattr(SORTED)?.call1((list,))?)
+        py.import_bound(BUILTINS)?.getattr(SORTED)?.call1((list,))
     }
 
     pub fn sort_like<'py>(
@@ -104,8 +104,8 @@ pub mod list {
         key: &Node,
         kind: SortKind,
     ) -> EvalResult<'py> {
-        let mut pairs: Vec<(u8, SortKey, Option<i64>, Option<String>, PyObject)> =
-            Vec::with_capacity(list.len());
+        type SortedVec = Vec<(u8, SortKey, Option<i64>, Option<String>, PyObject)>;
+        let mut pairs: SortedVec = Vec::with_capacity(list.len());
 
         for element in list.iter() {
             let key_value = match_any(py, key, &element)?;
@@ -356,7 +356,7 @@ pub fn literal<'py>(py: Python<'py>, obj: &PyObjectWrapper) -> EvalResult<'py> {
 }
 
 pub fn and<'py>(py: Python<'py>, value: &Bounded<'py>, a: &Node, b: &Node) -> EvalResult<'py> {
-    let left = match_any(py, a, &value)?;
+    let left = match_any(py, a, value)?;
     if left.is_truthy()? {
         match_any(py, b, value)
     } else {
@@ -365,7 +365,7 @@ pub fn and<'py>(py: Python<'py>, value: &Bounded<'py>, a: &Node, b: &Node) -> Ev
 }
 
 pub fn or<'py>(py: Python<'py>, value: &Bounded<'py>, a: &Node, b: &Node) -> EvalResult<'py> {
-    let left = match_any(py, a, &value)?;
+    let left = match_any(py, a, value)?;
     if left.is_truthy()? {
         Ok(left)
     } else {
