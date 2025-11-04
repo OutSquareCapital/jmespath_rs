@@ -57,7 +57,7 @@ def run() -> None:
             .lazy()
             .with_columns(
                 pl.mean_horizontal(pl.all().exclude(Cols.QUERY))
-                .round(1)
+                .cast(pl.UInt8)
                 .alias(Cols.AVERAGE_SPEEDUP)
             )
             .sort(Cols.AVERAGE_SPEEDUP, descending=True)
