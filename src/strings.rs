@@ -29,4 +29,7 @@ impl ExprStrNameSpace {
     pub fn slice(&self, start: Option<isize>, end: Option<isize>, step: Option<isize>) -> Expr {
         self.builder.wrap(StrOp::Slice { start, end, step })
     }
+    pub fn length(&self) -> Expr {
+        self.builder.wrap(StrOp::Length)
+    }
 }

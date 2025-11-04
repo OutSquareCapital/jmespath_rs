@@ -114,7 +114,7 @@ def build_cases() -> list[Case]:
         )
         .add(users.list.length(), "length(users)")
         .add(
-            users.list.map(dx.field("name")).list.map(dx.list().length()),
+            users.list.map(dx.field("name")).list.map(dx.element().str.length()),
             "map(&length(@), users[*].name)",
         )
         .add(users.list.min_by(dx.field("age")), "min_by(users, &age)")

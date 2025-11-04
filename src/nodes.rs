@@ -105,6 +105,7 @@ pub(crate) enum StrOp {
     Contains(String),
     StartsWith(String),
     EndsWith(String),
+    Length,
 }
 
 #[derive(Debug, Clone)]

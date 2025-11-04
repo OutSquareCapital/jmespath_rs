@@ -293,6 +293,10 @@ pub mod structs {
 pub mod strs {
     use super::*;
 
+    pub fn length<'py>(py: Python<'py>, string: &Bound<'py, PyString>) -> EvalResult<'py> {
+        Ok(string.len()?.to_object(py).into_bound(py).into_any())
+    }
+
     pub fn contains<'py>(
         py: Python<'py>,
         string: &Bound<'py, PyString>,

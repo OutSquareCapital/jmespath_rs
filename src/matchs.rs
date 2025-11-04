@@ -95,6 +95,7 @@ impl StrOp {
             Self::Contains(search) => eval::strs::contains(py, string, search),
             Self::StartsWith(prefix) => eval::strs::starts_with(py, string, prefix),
             Self::EndsWith(suffix) => eval::strs::ends_with(py, string, suffix),
+            Self::Length => eval::strs::length(py, string),
         }
     }
 }
