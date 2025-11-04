@@ -1,6 +1,6 @@
 use crate::lists::ExprListNameSpace;
 use crate::matchs::match_any;
-use crate::nodes::{into_node_lit, ComparisonOp, Node, PyObjectWrapper, ScalarOp, StructOp};
+use crate::nodes::{into_lit, ComparisonOp, Node, PyObjectWrapper, ScalarOp, StructOp};
 use crate::strings::ExprStrNameSpace;
 use crate::structs::ExprStructNameSpace;
 use pyo3::prelude::*;
@@ -38,7 +38,7 @@ impl Expr {
         Ok(Self {
             node: Node::Compare(
                 self.node.clone().into(),
-                ComparisonOp::Eq(into_node_lit(py, other)?.into()),
+                ComparisonOp::Eq(into_lit(py, other)?.into()),
             ),
         })
     }
@@ -47,7 +47,7 @@ impl Expr {
         Ok(Self {
             node: Node::Compare(
                 self.node.clone().into(),
-                ComparisonOp::Ne(into_node_lit(py, other)?.into()),
+                ComparisonOp::Ne(into_lit(py, other)?.into()),
             ),
         })
     }
@@ -56,7 +56,7 @@ impl Expr {
         Ok(Self {
             node: Node::Compare(
                 self.node.clone().into(),
-                ComparisonOp::Lt(into_node_lit(py, other)?.into()),
+                ComparisonOp::Lt(into_lit(py, other)?.into()),
             ),
         })
     }
@@ -65,7 +65,7 @@ impl Expr {
         Ok(Self {
             node: Node::Compare(
                 self.node.clone().into(),
-                ComparisonOp::Le(into_node_lit(py, other)?.into()),
+                ComparisonOp::Le(into_lit(py, other)?.into()),
             ),
         })
     }
@@ -74,7 +74,7 @@ impl Expr {
         Ok(Self {
             node: Node::Compare(
                 self.node.clone().into(),
-                ComparisonOp::Gt(into_node_lit(py, other)?.into()),
+                ComparisonOp::Gt(into_lit(py, other)?.into()),
             ),
         })
     }
@@ -83,20 +83,20 @@ impl Expr {
         Ok(Self {
             node: Node::Compare(
                 self.node.clone().into(),
-                ComparisonOp::Ge(into_node_lit(py, other)?.into()),
+                ComparisonOp::Ge(into_lit(py, other)?.into()),
             ),
         })
     }
-    pub fn and_(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            node: Node::And(self.node.clone().into(), into_node_lit(py, other)?.into()),
-        })
+    pub fn and_(&self, other: &Expr) -> Self {
+        Self {
+            node: Node::And(self.node.clone().into(), other.node.clone().into()),
+        }
     }
 
-    pub fn or_(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            node: Node::Or(self.node.clone().into(), into_node_lit(py, other)?.into()),
-        })
+    pub fn or_(&self, other: &Expr) -> Self {
+        Self {
+            node: Node::Or(self.node.clone().into(), other.node.clone().into()),
+        }
     }
 
     pub fn not_(&self) -> Self {

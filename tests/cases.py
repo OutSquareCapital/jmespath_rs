@@ -117,9 +117,9 @@ def build_cases() -> list[Case]:
             users.list.map(dx.field("name")).list.map(dx.list().length()),
             "map(&length(@), users[*].name)",
         )
-        .add(users.list.min_by("age"), "min_by(users, &age)")
+        .add(users.list.min_by(dx.field("age")), "min_by(users, &age)")
         .add(
-            users.list.sort_by("age").list.map(dx.field("name")),
+            users.list.sort_by(dx.field("age")).list.map(dx.field("name")),
             "sort_by(users, &age)[*].name",
         )
         .add(
@@ -146,7 +146,7 @@ def build_cases() -> list[Case]:
             users.list.map(dx.field("nested_scores")).list.flatten().list.flatten(),
             "users[*].nested_scores[][]",
         )
-        .add(users.list.max_by("age"), "max_by(users, &age)")
+        .add(users.list.max_by(dx.field("age")), "max_by(users, &age)")
         .add(
             users.list.map(dx.field("nested_scores"))
             .list.flatten()
@@ -187,11 +187,13 @@ def build_cases() -> list[Case]:
             "users[*].age == `30`",
         )
         .add(
-            users.list.map(dx.field("age"))
-            .gt(1)
-            .and_(users.list.map(dx.field("age")).eq(5).not_())
-            .or_(0),
-            "((users[*].age > `1` && !(users[*].age == `5`)) || `0`)",
+            users.list.map(
+                dx.field("age")
+                .gt(1)
+                .and_(dx.field("age").eq(5).not_())
+                .or_(dx.field("age").eq(0))
+            ),
+            "users[*] | map(&(age > `1` && !(age == `5`) || age == `0`), @)",
         )
         .add(users.list.map(dx.struct().keys()), "users[*].keys(@)")
         .add(users.list.map(dx.struct().values()), "users[*].values(@)")

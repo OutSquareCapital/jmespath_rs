@@ -224,20 +224,13 @@ pub mod list {
 
         Ok(best.into_any())
     }
-    pub fn join<'py>(
-        py: Python<'py>,
-        glue: &Bounded<'py>,
-        list: &Bound<'py, PyList>,
-    ) -> EvalResult<'py> {
-        if !is_string(glue) {
-            return Ok(py.None().into_bound(py));
-        }
+    pub fn join<'py>(py: Python<'py>, list: &Bound<'py, PyList>, glue: &str) -> EvalResult<'py> {
         for element in list.iter() {
             if !is_string(&element) {
                 return Ok(py.None().into_bound(py));
             }
         }
-        glue.call_method1(JOIN, (list,))
+        PyString::new_bound(py, glue).call_method1(JOIN, (list,))
     }
     pub fn avg<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
         let length = list.len();
@@ -299,32 +292,23 @@ pub mod strs {
     pub fn contains<'py>(
         py: Python<'py>,
         string: &Bound<'py, PyString>,
-        search: &Bounded<'py>,
+        search: &str,
     ) -> EvalResult<'py> {
-        if !is_string(search) {
-            return Ok(py.None().into_bound(py));
-        }
-
         Ok(string
             .to_str()?
-            .contains(search.extract::<&str>()?)
+            .contains(search)
             .to_object(py)
             .into_bound(py)
             .into_any())
     }
-
     pub fn starts_with<'py>(
         py: Python<'py>,
         string: &Bound<'py, PyString>,
-        prefix: &Bounded<'py>,
+        prefix: &str,
     ) -> EvalResult<'py> {
-        if !is_string(prefix) {
-            return Ok(false.to_object(py).into_bound(py).into_any());
-        }
-
         Ok(string
             .to_str()?
-            .starts_with(prefix.extract::<&str>()?)
+            .starts_with(prefix)
             .to_object(py)
             .into_bound(py)
             .into_any())
@@ -333,15 +317,11 @@ pub mod strs {
     pub fn ends_with<'py>(
         py: Python<'py>,
         string: &Bound<'py, PyString>,
-        suffix: &Bounded<'py>,
+        suffix: &str,
     ) -> EvalResult<'py> {
-        if !is_string(suffix) {
-            return Ok(false.to_object(py).into_bound(py).into_any());
-        }
-
         Ok(string
             .to_str()?
-            .ends_with(suffix.extract::<&str>()?)
+            .ends_with(suffix)
             .to_object(py)
             .into_bound(py)
             .into_any())

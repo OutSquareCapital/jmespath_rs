@@ -1,5 +1,5 @@
 use crate::exprs::Expr;
-use crate::nodes::{into_node, into_node_lit, ListOp, Node};
+use crate::nodes::{into_lit, ListOp, Node};
 use pyo3::prelude::*;
 
 #[pyclass(module = "dictexprs", name = "ExprListNameSpace")]
@@ -73,66 +73,66 @@ impl ExprListNameSpace {
         }
     }
 
-    pub fn join(&self, py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<Expr> {
-        Ok(Expr {
+    pub fn join(&self, glue: &str) -> Expr {
+        Expr {
             node: Node::List(
                 self.expr.node.clone().into(),
-                ListOp::Join(into_node_lit(py, array)?.into()),
+                ListOp::Join(glue.to_string()),
             ),
-        })
+        }
     }
 
-    pub fn map(&self, py: Python<'_>, expr: &Bound<'_, PyAny>) -> PyResult<Expr> {
-        Ok(Expr {
+    pub fn map(&self, expr: &Expr) -> Expr {
+        Expr {
             node: Node::List(
                 self.expr.node.clone().into(),
-                ListOp::Map(into_node(py, expr)?.into()),
+                ListOp::Map(expr.node.clone().into()),
             ),
-        })
+        }
     }
 
     pub fn contains(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Expr> {
         Ok(Expr {
             node: Node::List(
                 self.expr.node.clone().into(),
-                ListOp::Contains(into_node_lit(py, other)?.into()),
+                ListOp::Contains(into_lit(py, other)?.into()),
             ),
         })
     }
 
-    pub fn filter(&self, py: Python<'_>, cond: &Bound<'_, PyAny>) -> PyResult<Expr> {
-        Ok(Expr {
+    pub fn filter(&self, cond: &Expr) -> Expr {
+        Expr {
             node: Node::List(
                 self.expr.node.clone().into(),
-                ListOp::Filter(into_node(py, cond)?.into()),
+                ListOp::Filter(cond.node.clone().into()),
             ),
-        })
+        }
     }
 
-    pub fn sort_by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Expr> {
-        Ok(Expr {
+    pub fn sort_by(&self, key: &Expr) -> Expr {
+        Expr {
             node: Node::List(
                 self.expr.node.clone().into(),
-                ListOp::SortBy(into_node(py, key)?.into()),
+                ListOp::SortBy(key.node.clone().into()),
             ),
-        })
+        }
     }
 
-    pub fn min_by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Expr> {
-        Ok(Expr {
+    pub fn min_by(&self, key: &Expr) -> Expr {
+        Expr {
             node: Node::List(
                 self.expr.node.clone().into(),
-                ListOp::MinBy(into_node(py, key)?.into()),
+                ListOp::MinBy(key.node.clone().into()),
             ),
-        })
+        }
     }
 
-    pub fn max_by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Expr> {
-        Ok(Expr {
+    pub fn max_by(&self, key: &Expr) -> Expr {
+        Expr {
             node: Node::List(
                 self.expr.node.clone().into(),
-                ListOp::MaxBy(into_node(py, key)?.into()),
+                ListOp::MaxBy(key.node.clone().into()),
             ),
-        })
+        }
     }
 }

@@ -45,16 +45,7 @@ impl fmt::Debug for PyObjectWrapper {
     }
 }
 
-pub fn into_node(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<Node> {
-    if let Ok(expr) = obj.extract::<PyRef<Expr>>() {
-        return Ok(expr.node.clone());
-    }
-    if let Ok(s) = obj.extract::<String>() {
-        return Ok(Node::Struct(Box::new(Node::This), StructOp::Field(s)));
-    }
-    Ok(Node::Literal(PyObjectWrapper(obj.to_object(py))))
-}
-pub fn into_node_lit(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<Node> {
+pub fn into_lit(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<Node> {
     if let Ok(expr) = obj.extract::<PyRef<Expr>>() {
         return Ok(expr.node.clone());
     }
@@ -91,7 +82,7 @@ pub enum ListOp {
     Contains(Box<Node>),
     Filter(Box<Node>),
     Map(Box<Node>),
-    Join(Box<Node>),
+    Join(String),
     Sort,
     Max,
     Min,
@@ -110,9 +101,9 @@ pub enum StrOp {
         step: Option<isize>,
     },
     Reverse,
-    Contains(Box<Node>),
-    StartsWith(Box<Node>),
-    EndsWith(Box<Node>),
+    Contains(String),
+    StartsWith(String),
+    EndsWith(String),
 }
 
 #[derive(Debug, Clone)]

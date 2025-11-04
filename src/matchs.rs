@@ -25,7 +25,7 @@ pub fn match_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Eva
         Node::Str(base, op) => {
             let base_evaluated = match_any(py, base, value)?;
             match base_evaluated.downcast::<PyString>() {
-                Ok(string) => match_str_op(py, value, string, op),
+                Ok(string) => match_str_op(py, string, op),
                 Err(_) => Ok(py.None().into_bound(py)),
             }
         }
@@ -61,7 +61,7 @@ fn match_list_op<'py>(
         ListOp::Contains(search_node) => {
             eval::list::contains(py, list, &match_any(py, search_node, value)?)
         }
-        ListOp::Join(glue_node) => eval::list::join(py, &match_any(py, glue_node, value)?, list),
+        ListOp::Join(glue) => eval::list::join(py, list, glue),
         ListOp::Filter(cond) => eval::list::filter(py, list, cond),
         ListOp::Map(key) => eval::list::map(py, list, key),
         ListOp::Sort => eval::list::sort(py, list),
@@ -126,22 +126,15 @@ fn match_comparison_op<'py>(
 
 fn match_str_op<'py>(
     py: Python<'py>,
-    value: &Bounded<'py>,
     string: &Bound<'py, PyString>,
     op: &StrOp,
 ) -> EvalResult<'py> {
     match op {
         StrOp::Slice { start, end, step } => eval::strs::slice(py, string, start, end, step),
         StrOp::Reverse => eval::strs::reverse(py, string),
-        StrOp::Contains(search_node) => {
-            eval::strs::contains(py, string, &match_any(py, search_node, value)?)
-        }
-        StrOp::StartsWith(prefix_node) => {
-            eval::strs::starts_with(py, string, &match_any(py, prefix_node, value)?)
-        }
-        StrOp::EndsWith(suffix_node) => {
-            eval::strs::ends_with(py, string, &match_any(py, suffix_node, value)?)
-        }
+        StrOp::Contains(search) => eval::strs::contains(py, string, search),
+        StrOp::StartsWith(prefix) => eval::strs::starts_with(py, string, prefix),
+        StrOp::EndsWith(suffix) => eval::strs::ends_with(py, string, suffix),
     }
 }
 fn match_struct_op<'py>(
