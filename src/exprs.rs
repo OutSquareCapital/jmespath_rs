@@ -4,6 +4,33 @@ use crate::nodes::{into_lit, ComparisonOp, Node, PyObjectWrapper, ScalarOp, Stru
 use crate::strings::ExprStrNameSpace;
 use crate::structs::ExprStructNameSpace;
 use pyo3::prelude::*;
+use std::marker::PhantomData;
+
+pub(crate) type OpWrapper<Op> = NameSpaceBuilder<Op, fn(Box<Node>, Op) -> Node>;
+
+pub(crate) struct NameSpaceBuilder<Op, WrapperFn> {
+    expr: Expr,
+    wrapper: WrapperFn,
+    _phantom: PhantomData<Op>,
+}
+
+impl<Op, WrapperFn> NameSpaceBuilder<Op, WrapperFn> {
+    pub(crate) fn new(expr: Expr, wrapper: WrapperFn) -> Self {
+        Self {
+            expr,
+            wrapper,
+            _phantom: PhantomData,
+        }
+    }
+    pub(crate) fn wrap(&self, op: Op) -> Expr
+    where
+        WrapperFn: Fn(Box<Node>, Op) -> Node,
+    {
+        Expr {
+            node: (self.wrapper)(self.expr.node.clone().into(), op),
+        }
+    }
+}
 
 #[pyclass(module = "dictexprs", name = "Expr")]
 #[derive(Clone)]
@@ -20,20 +47,25 @@ impl Expr {
 
     #[getter]
     pub fn list(&self) -> ExprListNameSpace {
-        ExprListNameSpace { expr: self.clone() }
+        ExprListNameSpace {
+            builder: NameSpaceBuilder::new(self.clone(), Node::List),
+        }
     }
 
     #[getter]
     pub fn str(&self) -> ExprStrNameSpace {
-        ExprStrNameSpace { expr: self.clone() }
+        ExprStrNameSpace {
+            builder: NameSpaceBuilder::new(self.clone(), Node::Str),
+        }
     }
 
     #[getter]
     #[pyo3(name = "struct")]
     pub fn struct_(&self) -> ExprStructNameSpace {
-        ExprStructNameSpace { expr: self.clone() }
+        ExprStructNameSpace {
+            builder: NameSpaceBuilder::new(self.clone(), Node::Struct),
+        }
     }
-
     pub fn eq(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         Ok(Self {
             node: Node::Compare(
@@ -130,12 +162,12 @@ impl Expr {
 #[pyfunction]
 #[pyo3(name = "struct")]
 pub fn struct_() -> ExprStructNameSpace {
-    ExprStructNameSpace { expr: Expr::new() }
+    Expr::new().struct_()
 }
 #[pyfunction]
 #[pyo3(name = "list")]
 pub fn list() -> ExprListNameSpace {
-    ExprListNameSpace { expr: Expr::new() }
+    Expr::new().list()
 }
 
 #[pyfunction(signature = (*args))]

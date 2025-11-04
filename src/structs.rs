@@ -1,29 +1,23 @@
-use crate::exprs::Expr;
-use crate::nodes::{Node, StructOp};
+use crate::exprs::{Expr, OpWrapper};
+use crate::nodes::StructOp;
 use pyo3::prelude::*;
 
 #[pyclass(module = "dictexprs", name = "ExprStructNameSpace")]
 pub struct ExprStructNameSpace {
-    pub(crate) expr: Expr,
+    pub(crate) builder: OpWrapper<StructOp>,
 }
 
 #[pymethods]
 impl ExprStructNameSpace {
     pub fn field(&self, name: String) -> Expr {
-        Expr {
-            node: Node::Struct(self.expr.node.clone().into(), StructOp::Field(name)),
-        }
+        self.builder.wrap(StructOp::Field(name))
     }
 
     pub fn keys(&self) -> Expr {
-        Expr {
-            node: Node::Struct(self.expr.node.clone().into(), StructOp::Keys),
-        }
+        self.builder.wrap(StructOp::Keys)
     }
 
     pub fn values(&self) -> Expr {
-        Expr {
-            node: Node::Struct(self.expr.node.clone().into(), StructOp::Values),
-        }
+        self.builder.wrap(StructOp::Values)
     }
 }
