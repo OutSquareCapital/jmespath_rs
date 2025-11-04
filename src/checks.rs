@@ -2,16 +2,8 @@ use pyo3::prelude::*;
 use pyo3::types::*;
 
 #[inline]
-pub fn is_list(v: &Bound<'_, PyAny>) -> bool {
-    v.is_instance_of::<PyList>()
-}
-#[inline]
 pub fn is_sized(v: &Bound<'_, PyAny>) -> bool {
     v.len().is_ok()
-}
-#[inline]
-pub fn is_object(v: &Bound<'_, PyAny>) -> bool {
-    v.is_instance_of::<PyDict>()
 }
 #[inline]
 pub fn is_number(v: &Bound<'_, PyAny>) -> bool {

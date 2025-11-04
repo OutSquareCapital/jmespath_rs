@@ -12,32 +12,31 @@ pub fn literal<'py>(py: Python<'py>, obj: &PyObjectWrapper) -> EvalResult<'py> {
     Ok(obj.0.clone_ref(py).into_bound(py).into_any())
 }
 
-pub fn field<'py>(py: Python<'py>, dict: &Bounded<'py>, name: &str) -> EvalResult<'py> {
+pub fn field<'py>(py: Python<'py>, dict: &Bound<'py, PyDict>, name: &str) -> EvalResult<'py> {
     Ok(dict
-        .downcast::<PyDict>()?
         .get_item(name)?
         .unwrap_or_else(|| py.None().into_bound(py)))
 }
 
-pub fn list_index<'py>(py: Python<'py>, list: &Bounded<'py>, i: isize) -> EvalResult<'py> {
-    let seq = list.downcast::<PySequence>()?;
-    let len = seq.len()? as isize;
+pub fn list_index<'py>(py: Python<'py>, list: &Bound<'py, PyList>, i: isize) -> EvalResult<'py> {
+    let len = list.len() as isize;
     let idx = if i < 0 { len + i } else { i };
     if idx < 0 || idx >= len {
         Ok(py.None().into_bound(py))
     } else {
-        Ok(seq.get_item(idx as usize)?)
+        Ok(list.get_item(idx as usize)?)
     }
 }
 
 pub fn list_slice<'py>(
     py: Python<'py>,
-    list: &Bounded<'py>,
+    list: &Bound<'py, PyList>,
     start: &Option<isize>,
     end: &Option<isize>,
     step: &Option<isize>,
 ) -> EvalResult<'py> {
     Ok(list
+        .as_any()
         .get_item(PySlice::new_bound(
             py,
             start.unwrap_or(0),
@@ -49,12 +48,13 @@ pub fn list_slice<'py>(
 
 pub fn str_slice<'py>(
     py: Python<'py>,
-    string: &Bounded<'py>,
+    string: &Bound<'py, PyString>,
     start: &Option<isize>,
     end: &Option<isize>,
     step: &Option<isize>,
 ) -> EvalResult<'py> {
     Ok(string
+        .as_any()
         .get_item(PySlice::new_bound(
             py,
             start.unwrap_or(0),
@@ -64,12 +64,11 @@ pub fn str_slice<'py>(
         .into_any())
 }
 
-pub fn list_flatten<'py>(py: Python<'py>, list: &Bounded<'py>) -> EvalResult<'py> {
-    let list_py = list.downcast::<PyList>()?;
+pub fn list_flatten<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
     let output = PyList::empty_bound(py);
 
-    for element in list_py.iter() {
-        if is_list(&element) {
+    for element in list.iter() {
+        if element.is_instance_of::<PyList>() {
             let sequence = element.downcast::<PySequence>()?;
             for j in 0..sequence.len()? {
                 output.append(sequence.get_item(j)?)?;
@@ -82,12 +81,14 @@ pub fn list_flatten<'py>(py: Python<'py>, list: &Bounded<'py>) -> EvalResult<'py
     Ok(output.into_any())
 }
 
-pub fn list_filter<'py>(py: Python<'py>, list: &Bounded<'py>, cond: &Node) -> EvalResult<'py> {
-    let sequence = list.downcast::<PySequence>()?;
+pub fn list_filter<'py>(
+    py: Python<'py>,
+    list: &Bound<'py, PyList>,
+    cond: &Node,
+) -> EvalResult<'py> {
     let output = PyList::empty_bound(py);
 
-    for i in 0..sequence.len()? {
-        let element = sequence.get_item(i)?;
+    for element in list.iter() {
         if match_any(py, cond, &element)?.is_truthy()? {
             output.append(element)?;
         }
@@ -129,23 +130,21 @@ pub fn length<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> EvalResul
     Ok(length.to_object(py).into_bound(py).into_any())
 }
 
-pub fn list_sort<'py>(py: Python<'py>, list: &Bounded<'py>) -> EvalResult<'py> {
+pub fn list_sort<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
     Ok(py.import_bound(BUILTINS)?.getattr(SORTED)?.call1((list,))?)
 }
-pub fn keys<'py>(dict: &Bounded<'py>) -> EvalResult<'py> {
-    Ok(dict.downcast::<PyDict>()?.keys().into_any())
+pub fn keys<'py>(dict: &Bound<'py, PyDict>) -> EvalResult<'py> {
+    Ok(dict.keys().into_any())
 }
 
-pub fn values<'py>(dict: &Bounded<'py>) -> EvalResult<'py> {
-    Ok(dict.downcast::<PyDict>()?.values().into_any())
+pub fn values<'py>(dict: &Bound<'py, PyDict>) -> EvalResult<'py> {
+    Ok(dict.values().into_any())
 }
 
-pub fn list_map<'py>(py: Python<'py>, list: &Bounded<'py>, key: &Node) -> EvalResult<'py> {
-    let sequence = list.downcast::<PySequence>()?;
+pub fn list_map<'py>(py: Python<'py>, list: &Bound<'py, PyList>, key: &Node) -> EvalResult<'py> {
     let output = PyList::empty_bound(py);
 
-    for i in 0..sequence.len()? {
-        let element = sequence.get_item(i)?;
+    for element in list.iter() {
         output.append(match_any(py, key, &element)?)?;
     }
 
@@ -174,12 +173,10 @@ pub enum SortKind {
 
 pub fn list_sort_like<'py>(
     py: Python<'py>,
-    list: &Bounded<'py>,
+    list: &Bound<'py, PyList>,
     key: &Node,
     kind: SortKind,
 ) -> EvalResult<'py> {
-    let list_py = list.downcast::<PyList>()?;
-
     #[derive(PartialEq, PartialOrd)]
     struct SortKey(Option<f64>);
 
@@ -194,9 +191,9 @@ pub fn list_sort_like<'py>(
     }
 
     let mut pairs: Vec<(u8, SortKey, Option<i64>, Option<String>, PyObject)> =
-        Vec::with_capacity(list_py.len());
+        Vec::with_capacity(list.len());
 
-    for element in list_py.iter() {
+    for element in list.iter() {
         let key_value = match_any(py, key, &element)?;
         let f = key_value.extract::<f64>().ok();
         let i = key_value.extract::<i64>().ok();
@@ -249,17 +246,15 @@ pub fn abs<'py>(py: Python<'py>, number: &Bounded<'py>) -> EvalResult<'py> {
         .into_any())
 }
 
-pub fn list_avg<'py>(py: Python<'py>, list: &Bounded<'py>) -> EvalResult<'py> {
-    let sequence = list.downcast::<PySequence>()?;
-    let length = sequence.len()?;
+pub fn list_avg<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
+    let length = list.len();
 
     if length == 0 {
         return Ok(py.None().into_bound(py));
     }
 
     let mut sum = 0.0;
-    for i in 0..length {
-        let element = sequence.get_item(i)?;
+    for element in list.iter() {
         if !is_number(&element) {
             return Ok(py.None().into_bound(py));
         }
@@ -281,14 +276,13 @@ pub fn floor<'py>(py: Python<'py>, number: &Bounded<'py>) -> EvalResult<'py> {
 
 pub fn list_contains<'py>(
     py: Python<'py>,
-    list: &Bounded<'py>,
+    list: &Bound<'py, PyList>,
     search: &Bounded<'py>,
 ) -> EvalResult<'py> {
-    let sequence = list.downcast::<PySequence>()?;
     let mut found = false;
 
-    for i in 0..sequence.len()? {
-        if sequence.get_item(i)?.eq(search)? {
+    for element in list.iter() {
+        if element.eq(search)? {
             found = true;
             break;
         }
@@ -299,7 +293,7 @@ pub fn list_contains<'py>(
 
 pub fn str_contains<'py>(
     py: Python<'py>,
-    string: &Bounded<'py>,
+    string: &Bound<'py, PyString>,
     search: &Bounded<'py>,
 ) -> EvalResult<'py> {
     if !is_string(search) {
@@ -307,7 +301,7 @@ pub fn str_contains<'py>(
     }
 
     Ok(string
-        .extract::<&str>()?
+        .to_str()?
         .contains(search.extract::<&str>()?)
         .to_object(py)
         .into_bound(py)
@@ -316,7 +310,7 @@ pub fn str_contains<'py>(
 
 pub fn starts_with<'py>(
     py: Python<'py>,
-    string: &Bounded<'py>,
+    string: &Bound<'py, PyString>,
     prefix: &Bounded<'py>,
 ) -> EvalResult<'py> {
     if !is_string(prefix) {
@@ -324,7 +318,7 @@ pub fn starts_with<'py>(
     }
 
     Ok(string
-        .extract::<&str>()?
+        .to_str()?
         .starts_with(prefix.extract::<&str>()?)
         .to_object(py)
         .into_bound(py)
@@ -333,7 +327,7 @@ pub fn starts_with<'py>(
 
 pub fn ends_with<'py>(
     py: Python<'py>,
-    string: &Bounded<'py>,
+    string: &Bound<'py, PyString>,
     suffix: &Bounded<'py>,
 ) -> EvalResult<'py> {
     if !is_string(suffix) {
@@ -341,7 +335,7 @@ pub fn ends_with<'py>(
     }
 
     Ok(string
-        .extract::<&str>()?
+        .to_str()?
         .ends_with(suffix.extract::<&str>()?)
         .to_object(py)
         .into_bound(py)
@@ -350,15 +344,13 @@ pub fn ends_with<'py>(
 pub fn list_join<'py>(
     py: Python<'py>,
     glue: &Bounded<'py>,
-    list: &Bounded<'py>,
+    list: &Bound<'py, PyList>,
 ) -> EvalResult<'py> {
     let glue_str = glue.extract::<&str>()?;
-    let sequence = list.downcast::<PySequence>()?;
-    let length = sequence.len()?;
+    let length = list.len();
     let mut parts: Vec<String> = Vec::with_capacity(length);
 
-    for i in 0..length {
-        let element = sequence.get_item(i)?;
+    for element in list.iter() {
         if !is_string(&element) {
             return Ok(py.None().into_bound(py));
         }
@@ -367,15 +359,19 @@ pub fn list_join<'py>(
 
     Ok(PyString::new_bound(py, &parts.join(glue_str)).into_any())
 }
-pub fn list_min_max<'py>(py: Python<'py>, list: &Bounded<'py>, is_max: bool) -> EvalResult<'py> {
-    let sequence = list.downcast::<PySequence>()?;
-    let length = sequence.len()?;
+pub fn list_min_max<'py>(
+    py: Python<'py>,
+    list: &Bound<'py, PyList>,
+    is_max: bool,
+) -> EvalResult<'py> {
+    let length = list.len();
 
     if length == 0 {
         return Ok(py.None().into_bound(py));
     }
 
-    let first = sequence.get_item(0)?;
+    let mut iter = list.iter();
+    let first = iter.next().unwrap();
     let expect_number = is_number(&first);
     let expect_string = is_string(&first);
 
@@ -386,8 +382,7 @@ pub fn list_min_max<'py>(py: Python<'py>, list: &Bounded<'py>, is_max: bool) -> 
     let op = if is_max { CompareOp::Gt } else { CompareOp::Lt };
     let mut best = first;
 
-    for i in 1..length {
-        let current = sequence.get_item(i)?;
+    for current in iter {
         let is_num = is_number(&current);
         let is_str = is_string(&current);
 
@@ -431,26 +426,25 @@ pub fn not_null<'py>(py: Python<'py>, value: &Bounded<'py>, items: &[Node]) -> E
     Ok(py.None().into_bound(py))
 }
 
-pub fn list_reverse<'py>(py: Python<'py>, list: &Bounded<'py>) -> EvalResult<'py> {
-    list.get_item(PySlice::new_bound(py, isize::MAX, isize::MIN, -1isize))
-        .map(|match_any| match_any.into_any())
+pub fn list_reverse<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
+    list.as_any()
+        .get_item(PySlice::new_bound(py, isize::MAX, isize::MIN, -1isize))
+        .map(|result| result.into_any())
 }
-pub fn str_reverse<'py>(py: Python<'py>, string: &Bounded<'py>) -> EvalResult<'py> {
-    let reversed: String = string.extract::<&str>()?.chars().rev().collect();
+pub fn str_reverse<'py>(py: Python<'py>, string: &Bound<'py, PyString>) -> EvalResult<'py> {
+    let reversed: String = string.to_str()?.chars().rev().collect();
     Ok(PyString::new_bound(py, &reversed).into_any())
 }
 
-pub fn list_sum<'py>(py: Python<'py>, list: &Bounded<'py>) -> EvalResult<'py> {
-    let sequence = list.downcast::<PySequence>()?;
-    let length = sequence.len()?;
+pub fn list_sum<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
+    let length = list.len();
 
     if length == 0 {
         return Ok(0.to_object(py).into_bound(py).into_any());
     }
 
     let mut sum = 0.0;
-    for i in 0..length {
-        let element = sequence.get_item(i)?;
+    for element in list.iter() {
         if !is_number(&element) {
             return Ok(py.None().into_bound(py));
         }
@@ -460,15 +454,19 @@ pub fn list_sum<'py>(py: Python<'py>, list: &Bounded<'py>) -> EvalResult<'py> {
     Ok(sum.to_object(py).into_bound(py).into_any())
 }
 
-pub fn list_sort_by<'py>(py: Python<'py>, list: &Bounded<'py>, key: &Node) -> EvalResult<'py> {
+pub fn list_sort_by<'py>(
+    py: Python<'py>,
+    list: &Bound<'py, PyList>,
+    key: &Node,
+) -> EvalResult<'py> {
     list_sort_like(py, list, key, SortKind::SortBy)
 }
 
-pub fn list_min_by<'py>(py: Python<'py>, list: &Bounded<'py>, key: &Node) -> EvalResult<'py> {
+pub fn list_min_by<'py>(py: Python<'py>, list: &Bound<'py, PyList>, key: &Node) -> EvalResult<'py> {
     list_sort_like(py, list, key, SortKind::MinBy)
 }
 
-pub fn list_max_by<'py>(py: Python<'py>, list: &Bounded<'py>, key: &Node) -> EvalResult<'py> {
+pub fn list_max_by<'py>(py: Python<'py>, list: &Bound<'py, PyList>, key: &Node) -> EvalResult<'py> {
     list_sort_like(py, list, key, SortKind::MaxBy)
 }
 pub fn eq<'py>(py: Python<'py>, left: &Bounded<'py>, right: &Bounded<'py>) -> EvalResult<'py> {

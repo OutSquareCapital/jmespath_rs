@@ -3,6 +3,7 @@ use crate::eval;
 use crate::nodes::{Bounded, ComparisonOp, EvalResult, ListOp, Node, ScalarOp, StrOp, StructOp};
 use pyo3::basic::CompareOp;
 use pyo3::prelude::*;
+use pyo3::types::*;
 
 pub fn match_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> EvalResult<'py> {
     match node {
@@ -16,24 +17,24 @@ pub fn match_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Eva
         Node::Merge(items) => eval::merge(py, value, items),
         Node::List(base, op) => {
             let base_evaluated = match_any(py, base, value)?;
-            if !is_list(&base_evaluated) {
-                return Ok(py.None().into_bound(py));
+            match base_evaluated.downcast::<PyList>() {
+                Ok(list) => match_list_op(py, value, list, op),
+                Err(_) => Ok(py.None().into_bound(py)),
             }
-            match_list_op(py, value, &base_evaluated, op)
         }
         Node::Str(base, op) => {
             let base_evaluated = match_any(py, base, value)?;
-            if !is_string(&base_evaluated) {
-                return Ok(py.None().into_bound(py));
+            match base_evaluated.downcast::<PyString>() {
+                Ok(string) => match_str_op(py, value, string, op),
+                Err(_) => Ok(py.None().into_bound(py)),
             }
-            match_str_op(py, value, &base_evaluated, op)
         }
         Node::Struct(base, op) => {
             let base_evaluated = match_any(py, base, value)?;
-            if !is_object(&base_evaluated) {
-                return Ok(py.None().into_bound(py));
+            match base_evaluated.downcast::<PyDict>() {
+                Ok(dict) => match_struct_op(py, value, dict, op),
+                Err(_) => Ok(py.None().into_bound(py)),
             }
-            match_struct_op(py, value, &base_evaluated, op)
         }
         Node::Scalar(base, op) => {
             let base_evaluated = match_any(py, base, value)?;
@@ -49,7 +50,7 @@ pub fn match_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Eva
 fn match_list_op<'py>(
     py: Python<'py>,
     value: &Bounded<'py>,
-    list: &Bounded<'py>,
+    list: &Bound<'py, PyList>,
     op: &ListOp,
 ) -> EvalResult<'py> {
     match op {
@@ -126,7 +127,7 @@ fn match_comparison_op<'py>(
 fn match_str_op<'py>(
     py: Python<'py>,
     value: &Bounded<'py>,
-    string: &Bounded<'py>,
+    string: &Bound<'py, PyString>,
     op: &StrOp,
 ) -> EvalResult<'py> {
     match op {
@@ -146,7 +147,7 @@ fn match_str_op<'py>(
 fn match_struct_op<'py>(
     py: Python<'py>,
     _value: &Bounded<'py>,
-    dict: &Bounded<'py>,
+    dict: &Bound<'py, PyDict>,
     op: &StructOp,
 ) -> EvalResult<'py> {
     match op {
