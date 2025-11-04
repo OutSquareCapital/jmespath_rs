@@ -13,7 +13,6 @@ pub fn match_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Eva
         Node::Or(a, b) => eval::or(py, value, a, b),
         Node::Not(x) => eval::not(py, value, x),
         Node::Coalesce(items) => eval::coalesce(py, value, items),
-        Node::Length(x) => eval::length(py, value, x),
         Node::Merge(items) => eval::merge(py, value, items),
         Node::List(base, op) => {
             let base_evaluated = match_any(py, base, value)?;
@@ -66,6 +65,7 @@ impl ListOp {
         list: &Bound<'py, PyList>,
     ) -> EvalResult<'py> {
         match self {
+            Self::Length => eval::list::length(py, list),
             Self::Index(i) => eval::list::index(py, list, *i),
             Self::Slice { start, end, step } => eval::list::slice(py, list, start, end, step),
             Self::Reverse => eval::list::reverse(py, list),

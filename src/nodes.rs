@@ -5,6 +5,7 @@ use pyo3::{
     PyObject,
 };
 use std::fmt;
+
 pub type EvalResult<'py> = PyResult<Bound<'py, PyAny>>;
 pub type Bounded<'py> = Bound<'py, PyAny>;
 
@@ -60,7 +61,6 @@ pub(crate) enum Node {
     Or(Box<Node>, Box<Node>),
     Not(Box<Node>),
     Coalesce(Vec<Node>),
-    Length(Box<Node>),
     Merge(Vec<Node>),
     List(Box<Node>, ListOp),
     Str(Box<Node>, StrOp),
@@ -77,6 +77,7 @@ pub(crate) enum ListOp {
         end: Option<isize>,
         step: Option<isize>,
     },
+    Length,
     Reverse,
     Flatten,
     Contains(Box<Node>),
