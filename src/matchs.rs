@@ -54,24 +54,24 @@ fn match_list_op<'py>(
     op: &ListOp,
 ) -> EvalResult<'py> {
     match op {
-        ListOp::Index(i) => eval::list_index(py, list, *i),
-        ListOp::Slice { start, end, step } => eval::list_slice(py, list, start, end, step),
-        ListOp::Reverse => eval::list_reverse(py, list),
-        ListOp::Flatten => eval::list_flatten(py, list),
+        ListOp::Index(i) => eval::list::index(py, list, *i),
+        ListOp::Slice { start, end, step } => eval::list::slice(py, list, start, end, step),
+        ListOp::Reverse => eval::list::reverse(py, list),
+        ListOp::Flatten => eval::list::flatten(py, list),
         ListOp::Contains(search_node) => {
-            eval::list_contains(py, list, &match_any(py, search_node, value)?)
+            eval::list::contains(py, list, &match_any(py, search_node, value)?)
         }
-        ListOp::Join(glue_node) => eval::list_join(py, &match_any(py, glue_node, value)?, list),
-        ListOp::Filter(cond) => eval::list_filter(py, list, cond),
-        ListOp::Map(key) => eval::list_map(py, list, key),
-        ListOp::Sort => eval::list_sort(py, list),
-        ListOp::Max => eval::list_min_max(py, list, true),
-        ListOp::Min => eval::list_min_max(py, list, false),
-        ListOp::Sum => eval::list_sum(py, list),
-        ListOp::Avg => eval::list_avg(py, list),
-        ListOp::SortBy(key) => eval::list_sort_by(py, list, key),
-        ListOp::MinBy(key) => eval::list_min_by(py, list, key),
-        ListOp::MaxBy(key) => eval::list_max_by(py, list, key),
+        ListOp::Join(glue_node) => eval::list::join(py, &match_any(py, glue_node, value)?, list),
+        ListOp::Filter(cond) => eval::list::filter(py, list, cond),
+        ListOp::Map(key) => eval::list::map(py, list, key),
+        ListOp::Sort => eval::list::sort(py, list),
+        ListOp::Max => eval::list::min_max(py, list, true),
+        ListOp::Min => eval::list::min_max(py, list, false),
+        ListOp::Sum => eval::list::sum(py, list),
+        ListOp::Avg => eval::list::avg(py, list),
+        ListOp::SortBy(key) => eval::list::sort_by(py, list, key),
+        ListOp::MinBy(key) => eval::list::min_by(py, list, key),
+        ListOp::MaxBy(key) => eval::list::max_by(py, list, key),
     }
 }
 
@@ -131,16 +131,16 @@ fn match_str_op<'py>(
     op: &StrOp,
 ) -> EvalResult<'py> {
     match op {
-        StrOp::Slice { start, end, step } => eval::str_slice(py, string, start, end, step),
-        StrOp::Reverse => eval::str_reverse(py, string),
+        StrOp::Slice { start, end, step } => eval::strs::slice(py, string, start, end, step),
+        StrOp::Reverse => eval::strs::reverse(py, string),
         StrOp::Contains(search_node) => {
-            eval::str_contains(py, string, &match_any(py, search_node, value)?)
+            eval::strs::contains(py, string, &match_any(py, search_node, value)?)
         }
         StrOp::StartsWith(prefix_node) => {
-            eval::starts_with(py, string, &match_any(py, prefix_node, value)?)
+            eval::strs::starts_with(py, string, &match_any(py, prefix_node, value)?)
         }
         StrOp::EndsWith(suffix_node) => {
-            eval::ends_with(py, string, &match_any(py, suffix_node, value)?)
+            eval::strs::ends_with(py, string, &match_any(py, suffix_node, value)?)
         }
     }
 }
@@ -151,8 +151,8 @@ fn match_struct_op<'py>(
     op: &StructOp,
 ) -> EvalResult<'py> {
     match op {
-        StructOp::Field(name) => eval::field(py, dict, name),
-        StructOp::Keys => eval::keys(dict),
-        StructOp::Values => eval::values(dict),
+        StructOp::Field(name) => eval::structs::field(py, dict, name),
+        StructOp::Keys => eval::structs::keys(dict),
+        StructOp::Values => eval::structs::values(dict),
     }
 }
