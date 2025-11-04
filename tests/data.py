@@ -1,7 +1,7 @@
 # type: ignore
 from typing import Any
 import random
-from typing import TypedDict, NamedTuple
+from typing import TypedDict
 
 from enum import StrEnum, auto
 from factory import base
@@ -13,13 +13,6 @@ type Table = list[dict[str, Any]]
 SEED = 42
 random.seed(SEED)
 Faker.seed(SEED)
-
-
-class BenchmarkResult(NamedTuple):
-    size: int
-    query: str
-    qrydict: float
-    jmespth: float
 
 
 class Tags(StrEnum):

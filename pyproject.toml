@@ -19,4 +19,10 @@ profile = "release"
 doctester = { git = "https://github.com/OutSquareCapital/doctester.git" }
 
 [dependency-groups]
-dev = ["doctester", "factory-boy>=3.3.3", "jmespath>=1.0.1", "polars>=1.34.0"]
+dev = [
+    "doctester",
+    "factory-boy>=3.3.3",
+    "jmespath>=1.0.1",
+    "polars>=1.34.0",
+    "pyochain>=0.5.2",
+]

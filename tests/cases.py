@@ -1,14 +1,21 @@
-from tests.data import DataBase, BenchmarkResult
+from tests.data import DataBase
 import time
 import jmespath
-from typing import Any
-from pprint import pprint
+from typing import Any, NamedTuple
+
 from collections.abc import Callable
 import statistics
 import math
 import dictexprs as dx
 from dataclasses import dataclass, field
 from typing import Self
+
+
+class BenchmarkResult(NamedTuple):
+    size: int
+    query: str
+    qrydict: float
+    jmespth: float
 
 
 def _check_equal(got: Any, want: Any) -> bool:
@@ -44,14 +51,12 @@ class Case:
                 print(f"[jmes] {jmes_result!r}")
             except Exception as jmes_exc:
                 print(f"[jmes] Exception: {jmes_exc!r}")
-                pprint(data, compact=True, sort_dicts=False)
             raise
         try:
             jmes_result = jmespath.search(self.jmes_query, data)
         except Exception as jmes_exc:
             print(f"[dx] {dx_result!r}")
             print(f"[jmes] Exception: {jmes_exc!r}")
-            pprint(data, compact=True, sort_dicts=False)
             raise
 
         assert _check_equal(dx_result, jmes_result), print(
@@ -65,7 +70,7 @@ class Case:
         for _ in range(20):
             compiled.search(data)
 
-    def to_result(self, size: int, runs: int, data: DataBase) -> BenchmarkResult:
+    def to_result(self, size: int, data: DataBase, runs: int) -> BenchmarkResult:
         compiled = jmespath.compile(self.jmes_query)
         self.warmup(data, compiled)
         return BenchmarkResult(
@@ -195,10 +200,10 @@ def build_cases() -> list[Case]:
             "users[*].contains(nested_scores[], `50`)",
         )
         .add(
-            users.list.map(
-                dx.field("nested_scores").list.flatten().list.flatten().list.join(", ")
-            ),
-            'users[*].join(", ", nested_scores[])',
+            dx.field("sales")
+            .list.flatten()
+            .list.map(dx.struct().keys().list.join(", ")),
+            """sales[][] | map(&join(`, `, keys(@)), @)""",
         )
         .add(
             users.list.map(dx.merge(dx.element(), dx.lit({"extra_field": 1}))),
@@ -222,6 +227,3 @@ def build_cases() -> list[Case]:
         )
         .get()
     )
-
-
-CASES: list[Case] = build_cases()

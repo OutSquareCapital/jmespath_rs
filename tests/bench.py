@@ -1,12 +1,20 @@
 from __future__ import annotations
-from tests.data import BenchmarkResult, generate_db, DataBase
-from collections.abc import Iterator
-from tests.cases import CASES
+from tests.data import generate_db, DataBase
 from typing import Any
 from pathlib import Path
-from enum import StrEnum
+from enum import StrEnum, auto
 from dataclasses import dataclass
-from tests.output import Cols, format_results
+import pyochain as pc
+import polars as pl
+
+
+class Cols(StrEnum):
+    QUERY = auto()
+    SIZE = auto()
+    JMESPTH = auto()
+    QRYDICT = auto()
+    SPEEDUP = auto()
+    AVERAGE_SPEEDUP = auto()
 
 
 class Markers(StrEnum):
@@ -14,38 +22,46 @@ class Markers(StrEnum):
     END = "<!-- END_BENCHMARK_RESULTS -->"
 
 
-README = Path().joinpath("README").with_suffix(".md")
-
-
 @dataclass(slots=True)
 class BenchmarkConfig:
-    data_sizes: list[int]
+    data_sizes: pc.Seq[int]
     runs: int
 
-    @property
-    def _header(self) -> str:
-        return f"| query | {' | '.join((str(size) for size in self.data_sizes))} | {Cols.AVERAGE_SPEEDUP} |\n"
-
-    @property
-    def _separator(self) -> str:
-        return "|---" * (len(self.data_sizes) + 2) + "|\n"
-
-    def _add_row(self, row: dict[str, Any]) -> str:
-        query = row["query"].replace("|", "\\|").replace("*", r"\*")
-        return f"| {query} | {' | '.join((str(row[str(size)]) for size in self.data_sizes))} | {row[Cols.AVERAGE_SPEEDUP]} |\n"
-
-    def generate_markdown_table(self, data: Iterator[dict[str, Any]]) -> str:
+    def get_data(self) -> pc.Dict[int, DataBase]:
         return (
-            self._header
-            + self._separator
-            + "".join((self._add_row(row) for row in data))
+            self.data_sizes.iter()
+            .map(lambda size: (size, generate_db(size, 5)))
+            .into(lambda x: pc.Dict(dict(x)))
         )
 
-    def get_data(self) -> dict[int, DataBase]:
-        return {size: generate_db(size, 5) for size in self.data_sizes}
+    def header(self) -> str:
+        cols = self.data_sizes.iter().map(str).into(" | ".join)
+        return f"| query | {cols} | {Cols.AVERAGE_SPEEDUP} |\n"
+
+    def separator(self) -> str:
+        return "|---" * (self.data_sizes.count() + 2) + "|\n"
+
+    def add_row(self, row: dict[str, Any]) -> str:
+        query = row["query"].replace("|", "\\|").replace("*", r"\*")
+        cols = (
+            self.data_sizes.iter()
+            .map(lambda size: str(row[str(size)]))
+            .into(" | ".join)
+        )
+        return f"| {query} | {cols} | {row[Cols.AVERAGE_SPEEDUP]} |\n"
 
 
-def _write_markdown_table(readme_path: Path, md: str):
+def generate_markdown_table(
+    df: pl.DataFrame, config: BenchmarkConfig
+) -> pc.Wrapper[str]:
+    return pc.Wrapper(
+        config.header()
+        + config.separator()
+        + "".join((config.add_row(row) for row in df.iter_rows(named=True)))
+    )
+
+
+def write_markdown_table(md: str, readme_path: Path) -> None:
     with open(readme_path, "r", encoding="utf-8") as f:
         content = f.read()
 
@@ -58,24 +74,3 @@ def _write_markdown_table(readme_path: Path, md: str):
 
     with open(readme_path, "w", encoding="utf-8") as f:
         f.write(content)
-
-
-def run_checks(data: dict[int, DataBase]):
-    print(f"Running {len(CASES)} benchmarks on sample data...")
-    for case in CASES:
-        case.check(data[1])
-    print("All benchmark cases passed correctness checks.\n")
-
-
-def run_benchs(config: BenchmarkConfig, data: dict[int, DataBase]) -> None:
-    print(f"Lancement des benchmarks (Runs par test: {config.runs})\n")
-
-    results: list[BenchmarkResult] = []
-    for size in config.data_sizes:
-        for case in CASES:
-            results.append(case.to_result(size, config.runs, data[size]))
-
-    _write_markdown_table(
-        README,
-        config.generate_markdown_table(format_results(results).iter_rows(named=True)),
-    )
