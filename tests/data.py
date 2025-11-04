@@ -50,6 +50,12 @@ class UserFactory(base.DictFactory):
     category = LazyAttribute(
         lambda _: [random.choice(CATEGORIES) for _ in range(random.randint(1, 3))]
     )
+    nested_scores = LazyAttribute(
+        lambda _: [
+            [fake.random_int(min=0, max=100) for _ in range(random.randint(2, 5))]
+            for _ in range(random.randint(2, 4))
+        ]
+    )
 
 
 class ProductFactory(base.DictFactory):

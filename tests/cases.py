@@ -129,6 +129,14 @@ def build_cases() -> list[Case]:
             users.list.map(dx.field("category")).list.flatten(),
             "users[*].category[]",
         )
+        .add(
+            users.list.map(dx.field("nested_scores")).list.flatten(),
+            "users[*].nested_scores[]",
+        )
+        .add(
+            users.list.map(dx.field("nested_scores")).list.flatten().list.flatten(),
+            "users[*].nested_scores[][]",
+        )
         .add(users.list.max_by("age"), "max_by(users, &age)")
         .add(
             users.list.map(dx.field("category").list.flatten())
