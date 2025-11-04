@@ -18,21 +18,21 @@ pub fn match_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Eva
         Node::List(base, op) => {
             let base_evaluated = match_any(py, base, value)?;
             match base_evaluated.downcast::<PyList>() {
-                Ok(list) => match_list_op(py, value, list, op),
+                Ok(list) => op.eval(py, value, list),
                 Err(_) => Ok(py.None().into_bound(py)),
             }
         }
         Node::Str(base, op) => {
             let base_evaluated = match_any(py, base, value)?;
             match base_evaluated.downcast::<PyString>() {
-                Ok(string) => match_str_op(py, string, op),
+                Ok(string) => op.eval(py, string),
                 Err(_) => Ok(py.None().into_bound(py)),
             }
         }
         Node::Struct(base, op) => {
             let base_evaluated = match_any(py, base, value)?;
             match base_evaluated.downcast::<PyDict>() {
-                Ok(dict) => match_struct_op(py, value, dict, op),
+                Ok(dict) => op.eval(py, value, dict),
                 Err(_) => Ok(py.None().into_bound(py)),
             }
         }
@@ -41,111 +41,115 @@ pub fn match_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Eva
             if !is_number(&base_evaluated) {
                 return Ok(py.None().into_bound(py));
             }
-            match_scalar_op(py, &base_evaluated, op)
+            op.eval(py, &base_evaluated)
         }
-        Node::Compare(base, op) => match_comparison_op(py, value, base, op),
-    }
-}
-
-fn match_list_op<'py>(
-    py: Python<'py>,
-    value: &Bounded<'py>,
-    list: &Bound<'py, PyList>,
-    op: &ListOp,
-) -> EvalResult<'py> {
-    match op {
-        ListOp::Index(i) => eval::list::index(py, list, *i),
-        ListOp::Slice { start, end, step } => eval::list::slice(py, list, start, end, step),
-        ListOp::Reverse => eval::list::reverse(py, list),
-        ListOp::Flatten => eval::list::flatten(py, list),
-        ListOp::Contains(search_node) => {
-            eval::list::contains(py, list, &match_any(py, search_node, value)?)
+        Node::Compare(base, op) => {
+            let base_evaluated = match_any(py, base, value)?;
+            op.eval(py, value, &base_evaluated)
         }
-        ListOp::Join(glue) => eval::list::join(py, list, glue),
-        ListOp::Filter(cond) => eval::list::filter(py, list, cond),
-        ListOp::Map(key) => eval::list::map(py, list, key),
-        ListOp::Sort => eval::list::sort(py, list),
-        ListOp::Max => eval::list::min_max(py, list, true),
-        ListOp::Min => eval::list::min_max(py, list, false),
-        ListOp::Sum => eval::list::sum(py, list),
-        ListOp::Avg => eval::list::avg(py, list),
-        ListOp::SortBy(key) => eval::list::sort_by(py, list, key),
-        ListOp::MinBy(key) => eval::list::min_by(py, list, key),
-        ListOp::MaxBy(key) => eval::list::max_by(py, list, key),
     }
 }
-
-fn match_scalar_op<'py>(py: Python<'py>, number: &Bounded<'py>, op: &ScalarOp) -> EvalResult<'py> {
-    match op {
-        ScalarOp::Abs => eval::abs(py, number),
-        ScalarOp::Ceil => eval::ceil(py, number),
-        ScalarOp::Floor => eval::floor(py, number),
-    }
-}
-
-fn match_comparison_op<'py>(
-    py: Python<'py>,
-    value: &Bounded<'py>,
-    base: &Node,
-    op: &ComparisonOp,
-) -> EvalResult<'py> {
-    let base_evaluated = match_any(py, base, value)?;
-    match op {
-        ComparisonOp::Eq(other_node) => {
-            eval::eq(py, &base_evaluated, &match_any(py, other_node, value)?)
+impl ScalarOp {
+    pub fn eval<'py>(&self, py: Python<'py>, number: &Bounded<'py>) -> EvalResult<'py> {
+        match self {
+            Self::Abs => eval::abs(py, number),
+            Self::Ceil => eval::ceil(py, number),
+            Self::Floor => eval::floor(py, number),
         }
-        ComparisonOp::Ne(other_node) => {
-            eval::ne(py, &base_evaluated, &match_any(py, other_node, value)?)
+    }
+}
+impl ListOp {
+    pub fn eval<'py>(
+        &self,
+        py: Python<'py>,
+        value: &Bounded<'py>,
+        list: &Bound<'py, PyList>,
+    ) -> EvalResult<'py> {
+        match self {
+            Self::Index(i) => eval::list::index(py, list, *i),
+            Self::Slice { start, end, step } => eval::list::slice(py, list, start, end, step),
+            Self::Reverse => eval::list::reverse(py, list),
+            Self::Flatten => eval::list::flatten(py, list),
+            Self::Contains(search_node) => {
+                eval::list::contains(py, list, &match_any(py, search_node, value)?)
+            }
+            Self::Join(glue) => eval::list::join(py, list, glue),
+            Self::Filter(cond) => eval::list::filter(py, list, cond),
+            Self::Map(key) => eval::list::map(py, list, key),
+            Self::Sort => eval::list::sort(py, list),
+            Self::Max => eval::list::min_max(py, list, true),
+            Self::Min => eval::list::min_max(py, list, false),
+            Self::Sum => eval::list::sum(py, list),
+            Self::Avg => eval::list::avg(py, list),
+            Self::SortBy(key) => eval::list::sort_by(py, list, key),
+            Self::MinBy(key) => eval::list::min_by(py, list, key),
+            Self::MaxBy(key) => eval::list::max_by(py, list, key),
         }
-        ComparisonOp::Lt(other_node) => eval::cmp_bool(
-            py,
-            &base_evaluated,
-            &match_any(py, other_node, value)?,
-            CompareOp::Lt,
-        ),
-        ComparisonOp::Le(other_node) => eval::cmp_bool(
-            py,
-            &base_evaluated,
-            &match_any(py, other_node, value)?,
-            CompareOp::Le,
-        ),
-        ComparisonOp::Gt(other_node) => eval::cmp_bool(
-            py,
-            &base_evaluated,
-            &match_any(py, other_node, value)?,
-            CompareOp::Gt,
-        ),
-        ComparisonOp::Ge(other_node) => eval::cmp_bool(
-            py,
-            &base_evaluated,
-            &match_any(py, other_node, value)?,
-            CompareOp::Ge,
-        ),
     }
 }
-
-fn match_str_op<'py>(
-    py: Python<'py>,
-    string: &Bound<'py, PyString>,
-    op: &StrOp,
-) -> EvalResult<'py> {
-    match op {
-        StrOp::Slice { start, end, step } => eval::strs::slice(py, string, start, end, step),
-        StrOp::Reverse => eval::strs::reverse(py, string),
-        StrOp::Contains(search) => eval::strs::contains(py, string, search),
-        StrOp::StartsWith(prefix) => eval::strs::starts_with(py, string, prefix),
-        StrOp::EndsWith(suffix) => eval::strs::ends_with(py, string, suffix),
+impl StrOp {
+    pub fn eval<'py>(&self, py: Python<'py>, string: &Bound<'py, PyString>) -> EvalResult<'py> {
+        match self {
+            Self::Slice { start, end, step } => eval::strs::slice(py, string, start, end, step),
+            Self::Reverse => eval::strs::reverse(py, string),
+            Self::Contains(search) => eval::strs::contains(py, string, search),
+            Self::StartsWith(prefix) => eval::strs::starts_with(py, string, prefix),
+            Self::EndsWith(suffix) => eval::strs::ends_with(py, string, suffix),
+        }
     }
 }
-fn match_struct_op<'py>(
-    py: Python<'py>,
-    _value: &Bounded<'py>,
-    dict: &Bound<'py, PyDict>,
-    op: &StructOp,
-) -> EvalResult<'py> {
-    match op {
-        StructOp::Field(name) => eval::structs::field(py, dict, name),
-        StructOp::Keys => eval::structs::keys(dict),
-        StructOp::Values => eval::structs::values(dict),
+impl StructOp {
+    pub fn eval<'py>(
+        &self,
+        py: Python<'py>,
+        _value: &Bounded<'py>,
+        dict: &Bound<'py, PyDict>,
+    ) -> EvalResult<'py> {
+        match self {
+            Self::Field(name) => eval::structs::field(py, dict, name),
+            Self::Keys => eval::structs::keys(dict),
+            Self::Values => eval::structs::values(dict),
+        }
+    }
+}
+impl ComparisonOp {
+    pub fn eval<'py>(
+        &self,
+        py: Python<'py>,
+        value: &Bounded<'py>,
+        base_evaluated: &Bounded<'py>,
+    ) -> EvalResult<'py> {
+        match self {
+            Self::Eq(other_node) => {
+                eval::eq(py, base_evaluated, &match_any(py, other_node, value)?)
+            }
+            Self::Ne(other_node) => {
+                eval::ne(py, base_evaluated, &match_any(py, other_node, value)?)
+            }
+            Self::Lt(other_node) => eval::cmp_bool(
+                py,
+                base_evaluated,
+                &match_any(py, other_node, value)?,
+                CompareOp::Lt,
+            ),
+            Self::Le(other_node) => eval::cmp_bool(
+                py,
+                base_evaluated,
+                &match_any(py, other_node, value)?,
+                CompareOp::Le,
+            ),
+            Self::Gt(other_node) => eval::cmp_bool(
+                py,
+                base_evaluated,
+                &match_any(py, other_node, value)?,
+                CompareOp::Gt,
+            ),
+            Self::Ge(other_node) => eval::cmp_bool(
+                py,
+                base_evaluated,
+                &match_any(py, other_node, value)?,
+                CompareOp::Ge,
+            ),
+        }
     }
 }
