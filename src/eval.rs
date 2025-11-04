@@ -38,6 +38,10 @@ pub mod list {
         }
     }
 
+    pub fn length<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
+        Ok(list.len().to_object(py).into_bound(py).into_any())
+    }
+
     pub fn slice<'py>(
         py: Python<'py>,
         list: &Bound<'py, PyList>,
@@ -376,16 +380,6 @@ pub fn or<'py>(py: Python<'py>, value: &Bounded<'py>, a: &Node, b: &Node) -> Eva
 pub fn not<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> EvalResult<'py> {
     let result = !match_any(py, x, value)?.is_truthy()?;
     Ok(result.to_object(py).into_bound(py).into_any())
-}
-
-pub fn length<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> EvalResult<'py> {
-    let evaluated = match_any(py, x, value)?;
-    if !is_sized(&evaluated) {
-        return Ok(py.None().into_bound(py));
-    }
-
-    let length = evaluated.len()? as i64;
-    Ok(length.to_object(py).into_bound(py).into_any())
 }
 
 pub fn cmp_bool<'py>(

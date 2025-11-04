@@ -2,10 +2,6 @@ use pyo3::prelude::*;
 use pyo3::types::*;
 
 #[inline]
-pub fn is_sized(v: &Bound<'_, PyAny>) -> bool {
-    v.len().is_ok()
-}
-#[inline]
 pub fn is_number(v: &Bound<'_, PyAny>) -> bool {
     (v.is_instance_of::<PyFloat>() || v.is_instance_of::<PyLong>()) && !v.is_instance_of::<PyBool>()
 }
