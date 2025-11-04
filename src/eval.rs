@@ -7,7 +7,7 @@ use pyo3::types::*;
 
 const BUILTINS: &str = "builtins";
 const SORTED: &str = "sorted";
-
+const JOIN: &str = "join";
 pub mod list {
     use super::*;
 
@@ -234,20 +234,16 @@ pub mod list {
         glue: &Bounded<'py>,
         list: &Bound<'py, PyList>,
     ) -> EvalResult<'py> {
-        let glue_str = glue.extract::<&str>()?;
-        let length = list.len();
-        let mut parts: Vec<String> = Vec::with_capacity(length);
-
+        if !is_string(glue) {
+            return Ok(py.None().into_bound(py));
+        }
         for element in list.iter() {
             if !is_string(&element) {
                 return Ok(py.None().into_bound(py));
             }
-            parts.push(element.extract::<String>()?);
         }
-
-        Ok(PyString::new_bound(py, &parts.join(glue_str)).into_any())
+        glue.call_method1(JOIN, (list,))
     }
-
     pub fn avg<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
         let length = list.len();
 
