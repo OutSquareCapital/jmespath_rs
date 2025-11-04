@@ -16,6 +16,18 @@ pub mod list {
         MinBy,
         MaxBy,
     }
+    #[derive(PartialEq, PartialOrd)]
+    struct SortKey(Option<f64>);
+
+    impl Eq for SortKey {}
+
+    impl Ord for SortKey {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            self.0
+                .partial_cmp(&other.0)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        }
+    }
     pub fn index<'py>(py: Python<'py>, list: &Bound<'py, PyList>, i: isize) -> EvalResult<'py> {
         let len = list.len() as isize;
         let idx = if i < 0 { len + i } else { i };
@@ -92,19 +104,6 @@ pub mod list {
         key: &Node,
         kind: SortKind,
     ) -> EvalResult<'py> {
-        #[derive(PartialEq, PartialOrd)]
-        struct SortKey(Option<f64>);
-
-        impl Eq for SortKey {}
-
-        impl Ord for SortKey {
-            fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-                self.0
-                    .partial_cmp(&other.0)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            }
-        }
-
         let mut pairs: Vec<(u8, SortKey, Option<i64>, Option<String>, PyObject)> =
             Vec::with_capacity(list.len());
 
@@ -166,9 +165,7 @@ pub mod list {
     }
 
     pub fn sum<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
-        let length = list.len();
-
-        if length == 0 {
+        if list.len() == 0 {
             return Ok(0.to_object(py).into_bound(py).into_any());
         }
 
@@ -193,9 +190,7 @@ pub mod list {
         list: &Bound<'py, PyList>,
         is_max: bool,
     ) -> EvalResult<'py> {
-        let length = list.len();
-
-        if length == 0 {
+        if list.len() == 0 {
             return Ok(py.None().into_bound(py));
         }
 
