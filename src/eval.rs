@@ -68,10 +68,9 @@ pub fn list_flatten<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResu
     let output = PyList::empty_bound(py);
 
     for element in list.iter() {
-        if element.is_instance_of::<PyList>() {
-            let sequence = element.downcast::<PySequence>()?;
-            for j in 0..sequence.len()? {
-                output.append(sequence.get_item(j)?)?;
+        if let Ok(inner_list) = element.downcast::<PyList>() {
+            for item in inner_list.iter() {
+                output.append(item)?;
             }
         } else {
             output.append(element)?;
