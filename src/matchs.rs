@@ -30,7 +30,7 @@ pub fn match_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Eva
         Node::Struct(base, op) => {
             let base_evaluated = match_any(py, base, value)?;
             match base_evaluated.downcast::<PyDict>() {
-                Ok(dict) => op.eval(py, value, dict),
+                Ok(dict) => op.eval(py, dict),
                 Err(_) => Ok(py.None().into_bound(py)),
             }
         }
@@ -99,12 +99,7 @@ impl StrOp {
     }
 }
 impl StructOp {
-    pub fn eval<'py>(
-        &self,
-        py: Python<'py>,
-        _value: &Bounded<'py>,
-        dict: &Bound<'py, PyDict>,
-    ) -> EvalResult<'py> {
+    pub fn eval<'py>(&self, py: Python<'py>, dict: &Bound<'py, PyDict>) -> EvalResult<'py> {
         match self {
             Self::Field(name) => eval::structs::field(py, dict, name),
             Self::Keys => eval::structs::keys(dict),

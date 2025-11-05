@@ -25,6 +25,10 @@ fn is_eq(va: &Bound<'_, PyAny>, vb: &Bound<'_, PyAny>) -> PyResult<bool> {
     }
     va.eq(vb)
 }
+#[inline]
+fn not_eq(va: &Bound<'_, PyAny>, vb: &Bound<'_, PyAny>) -> PyResult<bool> {
+    Ok(!is_eq(va, vb)?)
+}
 
 pub mod list {
     use super::*;
@@ -372,8 +376,7 @@ pub mod strs {
     }
 
     pub fn reverse<'py>(py: Python<'py>, string: &Bound<'py, PyString>) -> EvalResult<'py> {
-        let reversed: String = string.to_str()?.chars().rev().collect();
-        Ok(PyString::new_bound(py, &reversed).into_any())
+        Ok(PyString::new_bound(py, &string.to_str()?.chars().rev().collect::<String>()).into_any())
     }
 }
 
@@ -428,13 +431,21 @@ pub fn abs<'py>(py: Python<'py>, number: &Bounded<'py>) -> EvalResult<'py> {
 }
 
 pub fn ceil<'py>(py: Python<'py>, number: &Bounded<'py>) -> EvalResult<'py> {
-    let result = number.extract::<f64>()?.ceil();
-    Ok(result.to_object(py).into_bound(py).into_any())
+    Ok(number
+        .extract::<f64>()?
+        .ceil()
+        .to_object(py)
+        .into_bound(py)
+        .into_any())
 }
 
 pub fn floor<'py>(py: Python<'py>, number: &Bounded<'py>) -> EvalResult<'py> {
-    let result = number.extract::<f64>()?.floor();
-    Ok(result.to_object(py).into_bound(py).into_any())
+    Ok(number
+        .extract::<f64>()?
+        .floor()
+        .to_object(py)
+        .into_bound(py)
+        .into_any())
 }
 
 pub fn merge<'py>(py: Python<'py>, value: &Bounded<'py>, items: &[Node]) -> EvalResult<'py> {
@@ -467,6 +478,5 @@ pub fn eq<'py>(py: Python<'py>, left: &Bounded<'py>, right: &Bounded<'py>) -> Ev
 }
 
 pub fn ne<'py>(py: Python<'py>, left: &Bounded<'py>, right: &Bounded<'py>) -> EvalResult<'py> {
-    let result = !is_eq(left, right)?;
-    Ok(result.to_object(py).into_bound(py).into_any())
+    Ok(not_eq(left, right)?.to_object(py).into_bound(py).into_any())
 }
