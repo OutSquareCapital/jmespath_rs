@@ -162,10 +162,6 @@ impl Expr {
             node: nodes::Node::Scalar(self.node.clone().into(), nodes::ScalarOp::Floor),
         }
     }
-
-    pub fn search(&self, py: Python<'_>, data: PyObject) -> PyResult<PyObject> {
-        match_any(py, &self.node, data.bind(py)).map(|result| result.unbind())
-    }
 }
 #[pyclass(module = "dictexprs", name = "ExprStructNameSpace")]
 pub struct ExprStructNameSpace {
@@ -340,5 +336,16 @@ pub mod entryfuncs {
         Python::with_gil(|py| Expr {
             node: nodes::Node::Literal(nodes::PyObjectWrapper(value.to_object(py))),
         })
+    }
+}
+#[pyclass(module = "dictexprs", name = "DataJson")]
+pub struct DataJson {
+    data: PyObject,
+}
+
+#[pymethods]
+impl DataJson {
+    pub fn query(&self, py: Python<'_>, expr: &Expr) -> PyResult<PyObject> {
+        match_any(py, &expr.node, self.data.bind(py)).map(|result| result.unbind())
     }
 }

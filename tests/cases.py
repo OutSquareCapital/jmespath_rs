@@ -43,7 +43,7 @@ class Case:
     def check(self, data: DataBase) -> None:
         """Checks the query against the provided data."""
         try:
-            dx_result = self.dx_query.search(data)
+            dx_result = dx.DataJson(data).query(self.dx_query)
         except Exception as dx_exc:
             print(f"[dx] Exception: {dx_exc!r}")
             try:
@@ -66,7 +66,7 @@ class Case:
 
     def warmup(self, data: DataBase, compiled: Any) -> None:
         for _ in range(20):
-            self.dx_query.search(data)
+            dx.DataJson(data).query(self.dx_query)
         for _ in range(20):
             compiled.search(data)
 
@@ -76,7 +76,9 @@ class Case:
         return BenchmarkResult(
             size=size,
             query=self.jmes_query,
-            qrydict=_get_perf(self.dx_query.search, data, runs),
+            qrydict=_get_perf(
+                lambda x: dx.DataJson(x).query(self.dx_query), data, runs
+            ),
             jmespth=_get_perf(compiled.search, data, runs),
         )
 
