@@ -1,4 +1,3 @@
-use crate::checks::*;
 use crate::eval;
 use crate::nodes::{Bounded, ComparisonOp, EvalResult, ListOp, Node, ScalarOp, StrOp, StructOp};
 use pyo3::basic::CompareOp;
@@ -37,7 +36,7 @@ pub fn match_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Eva
         }
         Node::Scalar(base, op) => {
             let base_evaluated = match_any(py, base, value)?;
-            if !is_number(&base_evaluated) {
+            if !eval::is_number(&base_evaluated) {
                 return Ok(py.None().into_bound(py));
             }
             op.eval(py, &base_evaluated)

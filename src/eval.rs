@@ -1,4 +1,3 @@
-use crate::checks::*;
 use crate::matchs::match_any;
 use crate::nodes::{Bounded, EvalResult, Node, PyObjectWrapper};
 use pyo3::basic::CompareOp;
@@ -8,6 +7,25 @@ use pyo3::types::*;
 const BUILTINS: &str = "builtins";
 const SORTED: &str = "sorted";
 const JOIN: &str = "join";
+
+#[inline]
+pub fn is_number(v: &Bound<'_, PyAny>) -> bool {
+    (v.is_instance_of::<PyFloat>() || v.is_instance_of::<PyLong>()) && !v.is_instance_of::<PyBool>()
+}
+#[inline]
+fn is_string(v: &Bound<'_, PyAny>) -> bool {
+    v.is_instance_of::<PyUnicode>()
+}
+#[inline]
+fn is_eq(va: &Bound<'_, PyAny>, vb: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if (va.is_instance_of::<PyBool>() && is_number(vb))
+        || (is_number(va) && vb.is_instance_of::<PyBool>())
+    {
+        return Ok(false);
+    }
+    va.eq(vb)
+}
+
 pub mod list {
     use super::*;
 

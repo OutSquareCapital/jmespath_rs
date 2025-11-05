@@ -1,6 +1,5 @@
 use pyo3::prelude::*;
 
-mod checks;
 mod eval;
 mod matchs;
 mod nodes;
