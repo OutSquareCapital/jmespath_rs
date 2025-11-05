@@ -2,23 +2,20 @@ use pyo3::prelude::*;
 
 mod checks;
 mod eval;
-mod exprs;
-mod lists;
 mod matchs;
 mod nodes;
-mod strings;
-mod structs;
-use exprs as xp;
+mod queries;
+use queries as qry;
 
 #[pymodule]
 fn dictexprs(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_class::<xp::Expr>()?;
-    m.add_function(wrap_pyfunction!(xp::lit, m)?)?;
-    m.add_function(wrap_pyfunction!(xp::element, m)?)?;
-    m.add_function(wrap_pyfunction!(xp::merge, m)?)?;
-    m.add_function(wrap_pyfunction!(xp::coalesce, m)?)?;
-    m.add_function(wrap_pyfunction!(xp::struct_, m)?)?;
-    m.add_function(wrap_pyfunction!(xp::list, m)?)?;
-    m.add_function(wrap_pyfunction!(xp::field, m)?)?;
+    m.add_class::<qry::Expr>()?;
+    m.add_function(wrap_pyfunction!(qry::entryfuncs::lit, m)?)?;
+    m.add_function(wrap_pyfunction!(qry::entryfuncs::element, m)?)?;
+    m.add_function(wrap_pyfunction!(qry::entryfuncs::merge, m)?)?;
+    m.add_function(wrap_pyfunction!(qry::entryfuncs::coalesce, m)?)?;
+    m.add_function(wrap_pyfunction!(qry::entryfuncs::struct_, m)?)?;
+    m.add_function(wrap_pyfunction!(qry::entryfuncs::list, m)?)?;
+    m.add_function(wrap_pyfunction!(qry::entryfuncs::field, m)?)?;
     Ok(())
 }

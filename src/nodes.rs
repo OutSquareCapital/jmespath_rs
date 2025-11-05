@@ -1,4 +1,3 @@
-use crate::exprs::Expr;
 use pyo3::{
     prelude::*,
     types::{PyDict, PyString, PyTuple},
@@ -44,13 +43,6 @@ impl fmt::Debug for PyObjectWrapper {
             }
         })
     }
-}
-
-pub(crate) fn into_lit(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<Node> {
-    if let Ok(expr) = obj.extract::<PyRef<Expr>>() {
-        return Ok(expr.node.clone());
-    }
-    Ok(Node::Literal(PyObjectWrapper(obj.to_object(py))))
 }
 
 #[derive(Debug, Clone)]
