@@ -174,8 +174,8 @@ pub struct ExprStructNameSpace {
 
 #[pymethods]
 impl ExprStructNameSpace {
-    pub fn field(&self, name: String) -> Expr {
-        self.builder.wrap(nodes::StructOp::Field(name))
+    pub fn field(&self, name: &str) -> Expr {
+        self.builder.wrap(nodes::StructOp::Field(name.to_string()))
     }
 
     pub fn keys(&self) -> Expr {
@@ -302,6 +302,15 @@ impl ExprListNameSpace {
 }
 pub mod entryfuncs {
     use super::*;
+
+    #[pyfunction]
+    pub fn element() -> Expr {
+        Expr::new()
+    }
+    #[pyfunction]
+    pub fn field(name: &str) -> Expr {
+        Expr::new().struct_().field(name)
+    }
     #[pyfunction]
     #[pyo3(name = "struct")]
     pub fn struct_() -> ExprStructNameSpace {
@@ -331,16 +340,5 @@ pub mod entryfuncs {
         Python::with_gil(|py| Expr {
             node: nodes::Node::Literal(nodes::PyObjectWrapper(value.to_object(py))),
         })
-    }
-
-    #[pyfunction]
-    pub fn element() -> Expr {
-        Expr::new()
-    }
-    #[pyfunction]
-    pub fn field(name: String) -> Expr {
-        Expr {
-            node: nodes::Node::Struct(Box::new(nodes::Node::This), nodes::StructOp::Field(name)),
-        }
     }
 }
