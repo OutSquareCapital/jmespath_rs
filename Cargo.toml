@@ -1,14 +1,14 @@
 [package]
-name = "dictexprs"
-version = "0.1.1"
 edition = "2021"
+name    = "dictexprs"
+version = "0.1.1"
 
 [lib]
-name = "dictexprs"
 crate-type = ["cdylib"]
+name       = "dictexprs"
 
 [dependencies]
 pyo3 = { version = "0.22", features = ["extension-module"] }
 [profile.release]
 codegen-units = 1
-lto = "fat"
+lto           = "fat"

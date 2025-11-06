@@ -79,7 +79,7 @@ A value of 2 meaning that Rust is twice as fast, a value of 0.5 meaning that Rus
 | users[\*].contains(nested_scores[], `50`) | 27.1 | 31.9 | 30.4 | 26.3 | 28 |
 | map(&ceil(@), users[\*].age) | 20.9 | 20.2 | 29.2 | 27.7 | 24 |
 | users[\*].merge(@, `{"extra_field":1}`) | 25.8 | 26.3 | 23.0 | 22.6 | 24 |
-| sales[][] \| map(&join(`, `, keys(@)), @) | 15.9 | 28.9 | 25.6 | 24.9 | 23 |
+| sales[][] \| map(&join(`,`, keys(@)), @) | 15.9 | 28.9 | 25.6 | 24.9 | 23 |
 | sort(users[?((age > `40` && active == `true`) && contains(category, `"VIP"`))].name) | 16.4 | 20.2 | 27.8 | 26.9 | 22 |
 | users[\*].values(@) | 18.1 | 19.1 | 27.7 | 25.3 | 22 |
 | users[\*].not_null(MISSING, name) | 17.6 | 19.0 | 21.3 | 19.5 | 19 |
@@ -98,7 +98,7 @@ A value of 2 meaning that Rust is twice as fast, a value of 0.5 meaning that Rus
 | max(users[\*].age) | 12.8 | 9.8 | 5.0 | 8.3 | 8 |
 | reverse(users[\*].age) | 11.1 | 9.0 | 4.3 | 7.7 | 8 |
 | length(users[\*].name) | 11.8 | 8.8 | 7.8 | 7.3 | 8 |
-| sort_by(users, &age)[\*].name | 9.5 | 7.2 | 4.0 | 4.4 | 6 |
+| sort_by[users, &age](\*).name | 9.5 | 7.2 | 4.0 | 4.4 | 6 |
 | users[\*].name | 7.8 | 4.3 | 4.1 | 7.3 | 5 |
 | users[\*].address | 5.1 | 4.5 | 4.2 | 7.2 | 5 |
 | users[\*].age == `30` | 6.0 | 3.2 | 6.4 | 5.0 | 5 |

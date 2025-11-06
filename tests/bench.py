@@ -1,11 +1,14 @@
 from __future__ import annotations
-from tests.data import generate_db, DataBase
-from typing import Any
-from pathlib import Path
-from enum import StrEnum, auto
+
 from dataclasses import dataclass
-import pyochain as pc
+from enum import StrEnum, auto
+from pathlib import Path
+from typing import Any
+
 import polars as pl
+import pyochain as pc
+
+from tests.data import DataBase, generate_db
 
 
 class Cols(StrEnum):

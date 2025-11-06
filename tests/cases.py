@@ -1,14 +1,16 @@
-from tests.data import DataBase
-import time
-import jmespath
-from typing import Any, NamedTuple
-
-from collections.abc import Callable
-import statistics
 import math
-import dictexprs as dx
+import statistics
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Self
+from typing import Any, NamedTuple, Self
+
+import dictexprs as dx
+import jmespath
+
+from tests.data import DataBase
+
+type TestFn = Callable[[], Any]
 
 
 class BenchmarkResult(NamedTuple):
@@ -25,14 +27,14 @@ def _check_equal(got: Any, want: Any) -> bool:
         return got == want
 
 
-def _add_time(func: Callable[[Any], Any], data: Any) -> float:
+def _add_time(func: TestFn) -> float:
     start = time.perf_counter()
-    func(data)
+    func()
     return time.perf_counter() - start
 
 
-def _get_perf(func: Callable[[Any], Any], data: Any, runs: int) -> float:
-    return statistics.median([_add_time(func, data) for _ in range(runs)])
+def _get_perf(func: TestFn, runs: int) -> float:
+    return statistics.median([_add_time(func) for _ in range(runs)])
 
 
 @dataclass(slots=True, frozen=True)
@@ -43,7 +45,7 @@ class Case:
     def check(self, data: DataBase) -> None:
         """Checks the query against the provided data."""
         try:
-            dx_result = dx.DataJson(data).query(self.dx_query)
+            dx_result = dx.DataJson(data).query(self.dx_query).collect()
         except Exception as dx_exc:
             print(f"[dx] Exception: {dx_exc!r}")
             try:
@@ -66,20 +68,19 @@ class Case:
 
     def warmup(self, data: DataBase, compiled: Any) -> None:
         for _ in range(20):
-            dx.DataJson(data).query(self.dx_query)
+            dx.DataJson(data).query(self.dx_query).collect()
         for _ in range(20):
             compiled.search(data)
 
     def to_result(self, size: int, data: DataBase, runs: int) -> BenchmarkResult:
         compiled = jmespath.compile(self.jmes_query)
         self.warmup(data, compiled)
+        qry = dx.DataJson(data).query(self.dx_query)
         return BenchmarkResult(
             size=size,
             query=self.jmes_query,
-            qrydict=_get_perf(
-                lambda x: dx.DataJson(x).query(self.dx_query), data, runs
-            ),
-            jmespth=_get_perf(compiled.search, data, runs),
+            qrydict=_get_perf(lambda: qry.collect(), runs),
+            jmespth=_get_perf(lambda: compiled.search(data), runs),
         )
 
 

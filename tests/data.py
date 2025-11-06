@@ -1,12 +1,11 @@
 # type: ignore
-from typing import Any
 import random
-from typing import TypedDict
-
 from enum import StrEnum, auto
+from typing import Any, TypedDict
+
 from factory import base
 from factory.base import DictFactory
-from factory.declarations import Sequence, LazyAttribute
+from factory.declarations import LazyAttribute, Sequence
 from faker import Faker
 
 type Table = list[dict[str, Any]]

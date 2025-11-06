@@ -1,15 +1,17 @@
-from tests.bench import (
-    BenchmarkConfig,
-    write_markdown_table,
-    generate_markdown_table,
-    Cols,
-)
-import doctester as dt
 from pathlib import Path
 from pprint import pprint
-from tests.cases import build_cases, Case
-import pyochain as pc
+
+import doctester as dt
 import polars as pl
+import pyochain as pc
+
+from tests.bench import (
+    BenchmarkConfig,
+    Cols,
+    generate_markdown_table,
+    write_markdown_table,
+)
+from tests.cases import Case, build_cases
 
 README = Path().joinpath("README").with_suffix(".md")
 STUBS = Path().joinpath("dictexprs").with_suffix(".pyi")
