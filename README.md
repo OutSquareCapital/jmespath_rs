@@ -67,40 +67,40 @@ A value of 2 meaning that Rust is twice as fast, a value of 0.5 meaning that Rus
 <!-- BENCHMARK_RESULTS -->
 | query | 10 | 50 | 250 | 1250 | average_speedup |
 |---|---|---|---|---|---|
-| users[\*].ends_with(name, `"s"`) | 37.5 | 41.1 | 40.3 | 38.6 | 39 |
-| users[\*].starts_with(name, `"A"`) | 37.4 | 42.0 | 39.4 | 40.2 | 39 |
-| users[\*] \| map(&(age > `1` && !(age == `5`) \|\| age == `0`), @) | 33.0 | 31.7 | 31.6 | 30.0 | 31 |
-| map(&length(@), users[\*].name) | 22.2 | 22.7 | 39.0 | 37.6 | 30 |
-| users[\*].nested_scores[][] | 36.1 | 17.4 | 34.0 | 35.3 | 30 |
-| map(&abs(@), users[\*].age) | 29.2 | 31.1 | 28.7 | 27.7 | 29 |
-| map(&floor(@), users[\*].age) | 30.2 | 30.5 | 28.9 | 27.6 | 29 |
-| users \| length(@) | 30.0 | 28.7 | 28.3 | 28.0 | 28 |
-| users[\*].keys(@) | 19.6 | 22.9 | 37.3 | 32.3 | 28 |
-| users[\*].contains(nested_scores[], `50`) | 27.1 | 31.9 | 30.4 | 26.3 | 28 |
-| map(&ceil(@), users[\*].age) | 20.9 | 20.2 | 29.2 | 27.7 | 24 |
-| users[\*].merge(@, `{"extra_field":1}`) | 25.8 | 26.3 | 23.0 | 22.6 | 24 |
-| sales[][] \| map(&join(`,`, keys(@)), @) | 15.9 | 28.9 | 25.6 | 24.9 | 23 |
-| sort(users[?((age > `40` && active == `true`) && contains(category, `"VIP"`))].name) | 16.4 | 20.2 | 27.8 | 26.9 | 22 |
-| users[\*].values(@) | 18.1 | 19.1 | 27.7 | 25.3 | 22 |
-| users[\*].not_null(MISSING, name) | 17.6 | 19.0 | 21.3 | 19.5 | 19 |
-| users[?(age >= `30` && active == `true`)].name | 20.4 | 11.5 | 21.8 | 19.5 | 18 |
-| length(users) | 19.5 | 18.0 | 17.5 | 17.5 | 18 |
-| users[\*].category[] | 18.5 | 19.2 | 18.9 | 17.1 | 18 |
-| users[\*].nested_scores[] | 19.7 | 19.1 | 17.9 | 16.9 | 18 |
-| sort(users[\*].nested_scores[][]) | 23.7 | 17.9 | 12.6 | 12.3 | 16 |
-| min(users[\*].age) | 12.0 | 10.0 | 8.8 | 8.3 | 9 |
-| sum(users[\*].age) | 11.3 | 9.1 | 8.6 | 7.9 | 9 |
-| users[\*].address.city | 11.9 | 6.6 | 9.2 | 11.0 | 9 |
-| abs(sum(users[\*].age)) | 13.9 | 9.4 | 8.6 | 7.9 | 9 |
-| min_by(users, &age) | 10.3 | 8.1 | 7.5 | 7.4 | 8 |
-| max_by(users, &age) | 6.7 | 9.1 | 8.9 | 7.3 | 8 |
-| avg(users[\*].age) | 11.3 | 5.0 | 8.9 | 7.9 | 8 |
-| max(users[\*].age) | 12.8 | 9.8 | 5.0 | 8.3 | 8 |
-| reverse(users[\*].age) | 11.1 | 9.0 | 4.3 | 7.7 | 8 |
-| length(users[\*].name) | 11.8 | 8.8 | 7.8 | 7.3 | 8 |
-| sort_by[users, &age](\*).name | 9.5 | 7.2 | 4.0 | 4.4 | 6 |
-| users[\*].name | 7.8 | 4.3 | 4.1 | 7.3 | 5 |
-| users[\*].address | 5.1 | 4.5 | 4.2 | 7.2 | 5 |
-| users[\*].age == `30` | 6.0 | 3.2 | 6.4 | 5.0 | 5 |
+| sales[][] \| map(&join(`, `, sort(keys(@))), @) | 4.3 | 5.1 | 4.2 | 3.3 | 4 |
+| users[\*].name | 0.1 | 0.1 | 0.0 | 0.0 | 0 |
+| users[\*].address | 0.1 | 0.0 | 0.1 | 0.0 | 0 |
+| users \| length(@) | 0.1 | 0.0 | 0.0 | 0.0 | 0 |
+| users[?(age >= `30` && active == `true`)].name | 0.6 | 0.6 | 0.5 | 0.4 | 0 |
+| length(users) | 0.1 | 0.0 | 0.0 | 0.0 | 0 |
+| map(&length(@), users[\*].name) | 0.6 | 0.3 | 0.5 | 0.3 | 0 |
+| min_by(users, &age) | 0.2 | 0.1 | 0.1 | 0.1 | 0 |
+| sort_by(users, &age)[\*].name | 0.3 | 0.2 | 0.2 | 0.1 | 0 |
+| sort(users[?((age > `40` && active == `true`) && contains(category, `"VIP"`))].name) | 0.8 | 0.4 | 0.7 | 0.5 | 0 |
+| users[\*].category[] | 0.3 | 0.2 | 0.1 | 0.1 | 0 |
+| users[\*].nested_scores[] | 0.3 | 0.1 | 0.2 | 0.2 | 0 |
+| users[\*].nested_scores[][] | 0.5 | 0.4 | 0.9 | 0.6 | 0 |
+| max_by(users, &age) | 0.2 | 0.1 | 0.1 | 0.1 | 0 |
+| sort(users[\*].nested_scores[][]) | 1.1 | 1.0 | 1.0 | 0.7 | 0 |
+| map(&abs(@), users[\*].age) | 0.5 | 0.5 | 0.2 | 0.3 | 0 |
+| avg(users[\*].age) | 0.1 | 0.1 | 0.1 | 0.1 | 0 |
+| map(&ceil(@), users[\*].age) | 0.5 | 0.5 | 0.3 | 0.3 | 0 |
+| map(&floor(@), users[\*].age) | 0.3 | 0.5 | 0.5 | 0.3 | 0 |
+| max(users[\*].age) | 0.2 | 0.1 | 0.1 | 0.1 | 0 |
+| min(users[\*].age) | 0.2 | 0.1 | 0.1 | 0.1 | 0 |
+| reverse(users[\*].age) | 0.2 | 0.1 | 0.1 | 0.0 | 0 |
+| sum(users[\*].age) | 0.2 | 0.1 | 0.1 | 0.1 | 0 |
+| users[\*].address.city | 0.2 | 0.1 | 0.2 | 0.1 | 0 |
+| length(users[\*].name) | 0.1 | 0.1 | 0.1 | 0.1 | 0 |
+| users[\*].age == `30` | 0.1 | 0.0 | 0.1 | 0.0 | 0 |
+| users[\*] \| map(&(age > `1` && !(age == `5`) \|\| age == `0`), @) | 1.0 | 0.5 | 0.9 | 0.5 | 0 |
+| sort(users[\*].keys(@)[]) | 0.8 | 0.5 | 0.5 | 0.4 | 0 |
+| sort(users[\*].address.values(@)[]) | 0.4 | 0.4 | 0.5 | 0.4 | 0 |
+| users[\*].contains(nested_scores[], `50`) | 1.3 | 0.7 | 1.0 | 0.7 | 0 |
+| users[\*].merge(@, `{"extra_field":1}`) | 0.4 | 0.2 | 0.3 | 0.2 | 0 |
+| users[\*].ends_with(name, `"s"`) | 0.3 | 0.3 | 0.5 | 0.3 | 0 |
+| users[\*].starts_with(name, `"A"`) | 0.5 | 0.5 | 0.5 | 0.3 | 0 |
+| users[\*].not_null(MISSING, name) | 0.2 | 0.3 | 0.3 | 0.2 | 0 |
+| abs(sum(users[\*].age)) | 0.2 | 0.1 | 0.1 | 0.1 | 0 |
 
 <!-- END_BENCHMARK_RESULTS -->

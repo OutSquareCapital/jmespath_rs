@@ -74,7 +74,6 @@ class Case:
 
     def to_result(self, size: int, data: DataBase, runs: int) -> BenchmarkResult:
         compiled = jmespath.compile(self.jmes_query)
-        self.warmup(data, compiled)
         qry = dx.DataJson(data).query(self.dx_query)
         return BenchmarkResult(
             size=size,
@@ -198,8 +197,16 @@ def build_cases() -> list[Case]:
             ),
             "users[*] | map(&(age > `1` && !(age == `5`) || age == `0`), @)",
         )
-        .add(users.list.map(dx.struct().keys()), "users[*].keys(@)")
-        .add(users.list.map(dx.struct().values()), "users[*].values(@)")
+        .add(
+            users.list.map(dx.struct().keys()).list.flatten().list.sort(),
+            "sort(users[*].keys(@)[])",
+        )
+        .add(
+            users.list.map(dx.field("address").struct.values())
+            .list.flatten()
+            .list.sort(),
+            "sort(users[*].address.values(@)[])",
+        )
         .add(
             users.list.map(dx.field("nested_scores").list.flatten().list.contains(50)),
             "users[*].contains(nested_scores[], `50`)",
@@ -207,8 +214,8 @@ def build_cases() -> list[Case]:
         .add(
             dx.field("sales")
             .list.flatten()
-            .list.map(dx.struct().keys().list.join(", ")),
-            """sales[][] | map(&join(`, `, keys(@)), @)""",
+            .list.map(dx.struct().keys().list.sort().list.join(", ")),
+            """sales[][] | map(&join(`, `, sort(keys(@))), @)""",
         )
         .add(
             users.list.map(dx.merge(dx.element(), dx.lit({"extra_field": 1}))),

@@ -1,5 +1,5 @@
+from collections.abc import Iterator
 from pathlib import Path
-from pprint import pprint
 
 import doctester as dt
 import polars as pl
@@ -11,7 +11,7 @@ from tests.bench import (
     generate_markdown_table,
     write_markdown_table,
 )
-from tests.cases import Case, build_cases
+from tests.cases import BenchmarkResult, Case, build_cases
 
 README = Path().joinpath("README").with_suffix(".md")
 STUBS = Path().joinpath("dictexprs").with_suffix(".pyi")
@@ -27,19 +27,22 @@ def run() -> None:
     data = config.get_data()
 
     sample = data.iter_values().first()
-
-    pprint(sample, compact=True, sort_dicts=False)
     print(f"Running {CASES.count()} benchmarks on sample data...")
     CASES.iter().for_each(lambda case: case.check(sample))
     print("All benchmark cases passed correctness checks.\n")
+
+    def _get_res(case: Case) -> Iterator[BenchmarkResult]:
+        return (
+            data.iter_items()
+            .map(lambda kv: case.to_result(kv[0], kv[1], config.runs))
+            .unwrap()
+        )
+
     if _update_readme():
         (
             CASES.iter()
-            .map(
-                lambda case: data.iter_items()
-                .map(lambda kv: case.to_result(*kv, config.runs))
-                .unwrap()
-            )
+            .map(lambda case: case.warmup())
+            .map(_get_res)
             .flatten()
             .into(pl.LazyFrame)
             .with_columns(
