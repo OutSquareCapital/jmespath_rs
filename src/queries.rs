@@ -1,4 +1,3 @@
-use crate::matchs::match_any;
 use crate::nodes;
 use pyo3::prelude::*;
 use std::marker::PhantomData;
@@ -336,16 +335,5 @@ pub mod entryfuncs {
         Python::with_gil(|py| Expr {
             node: nodes::Node::Literal(nodes::PyObjectWrapper(value.to_object(py))),
         })
-    }
-}
-#[pyclass(module = "dictexprs", name = "DataJson")]
-pub struct DataJson {
-    data: PyObject,
-}
-
-#[pymethods]
-impl DataJson {
-    pub fn query(&self, py: Python<'_>, expr: &Expr) -> PyResult<PyObject> {
-        match_any(py, &expr.node, self.data.bind(py)).map(|result| result.unbind())
     }
 }
