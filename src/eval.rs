@@ -9,25 +9,26 @@ const SORTED: &str = "sorted";
 const JOIN: &str = "join";
 
 #[inline]
-pub fn is_number(v: &Bound<'_, PyAny>) -> bool {
-    (v.is_instance_of::<PyFloat>() || v.is_instance_of::<PyLong>()) && !v.is_instance_of::<PyBool>()
+pub fn is_number(value: &Bound<'_, PyAny>) -> bool {
+    (value.is_instance_of::<PyFloat>() || value.is_instance_of::<PyLong>())
+        && !value.is_instance_of::<PyBool>()
 }
 #[inline]
-fn is_string(v: &Bound<'_, PyAny>) -> bool {
-    v.is_instance_of::<PyUnicode>()
+fn is_string(value: &Bound<'_, PyAny>) -> bool {
+    value.is_instance_of::<PyUnicode>()
 }
 #[inline]
-fn is_eq(va: &Bound<'_, PyAny>, vb: &Bound<'_, PyAny>) -> PyResult<bool> {
-    if (va.is_instance_of::<PyBool>() && is_number(vb))
-        || (is_number(va) && vb.is_instance_of::<PyBool>())
+fn is_eq(left: &Bound<'_, PyAny>, right: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if (left.is_instance_of::<PyBool>() && is_number(right))
+        || (is_number(left) && right.is_instance_of::<PyBool>())
     {
         return Ok(false);
     }
-    va.eq(vb)
+    left.eq(right)
 }
 #[inline]
-fn not_eq(va: &Bound<'_, PyAny>, vb: &Bound<'_, PyAny>) -> PyResult<bool> {
-    Ok(!is_eq(va, vb)?)
+fn not_eq(left: &Bound<'_, PyAny>, right: &Bound<'_, PyAny>) -> PyResult<bool> {
+    Ok(!is_eq(left, right)?)
 }
 
 pub mod list {

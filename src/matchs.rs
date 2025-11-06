@@ -13,27 +13,18 @@ pub fn match_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Eva
         Node::Not(x) => eval::not(py, value, x),
         Node::Coalesce(items) => eval::coalesce(py, value, items),
         Node::Merge(items) => eval::merge(py, value, items),
-        Node::List(base, op) => {
-            let base_evaluated = match_any(py, base, value)?;
-            match base_evaluated.downcast::<PyList>() {
-                Ok(list) => op.eval(py, value, list),
-                Err(_) => Ok(py.None().into_bound(py)),
-            }
-        }
-        Node::Str(base, op) => {
-            let base_evaluated = match_any(py, base, value)?;
-            match base_evaluated.downcast::<PyString>() {
-                Ok(string) => op.eval(py, string),
-                Err(_) => Ok(py.None().into_bound(py)),
-            }
-        }
-        Node::Struct(base, op) => {
-            let base_evaluated = match_any(py, base, value)?;
-            match base_evaluated.downcast::<PyDict>() {
-                Ok(dict) => op.eval(py, dict),
-                Err(_) => Ok(py.None().into_bound(py)),
-            }
-        }
+        Node::List(base, op) => match match_any(py, base, value)?.downcast::<PyList>() {
+            Ok(list) => op.eval(py, value, list),
+            Err(_) => Ok(py.None().into_bound(py)),
+        },
+        Node::Str(base, op) => match match_any(py, base, value)?.downcast::<PyString>() {
+            Ok(string) => op.eval(py, string),
+            Err(_) => Ok(py.None().into_bound(py)),
+        },
+        Node::Struct(base, op) => match match_any(py, base, value)?.downcast::<PyDict>() {
+            Ok(dict) => op.eval(py, dict),
+            Err(_) => Ok(py.None().into_bound(py)),
+        },
         Node::Scalar(base, op) => {
             let base_evaluated = match_any(py, base, value)?;
             if !eval::is_number(&base_evaluated) {
@@ -41,10 +32,7 @@ pub fn match_any<'py>(py: Python<'py>, node: &Node, value: &Bounded<'py>) -> Eva
             }
             op.eval(py, &base_evaluated)
         }
-        Node::Compare(base, op) => {
-            let base_evaluated = match_any(py, base, value)?;
-            op.eval(py, value, &base_evaluated)
-        }
+        Node::Compare(base, op) => op.eval(py, value, &match_any(py, base, value)?),
     }
 }
 impl ScalarOp {
