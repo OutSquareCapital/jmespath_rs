@@ -3,10 +3,12 @@ use crate::nodes::{Bounded, EvalResult, Node, PyObjectWrapper};
 use pyo3::basic::CompareOp;
 use pyo3::prelude::*;
 use pyo3::types::*;
-const BUILTINS: &str = "builtins";
-const SORTED: &str = "sorted";
-const JOIN: &str = "join";
-
+pub mod pylibs {
+    pub const BUILTINS: &str = "builtins";
+    pub const SORTED: &str = "sorted";
+    pub const JOIN: &str = "join";
+    pub const JSON: &str = "json";
+}
 #[inline]
 pub fn is_number(value: &Bound<'_, PyAny>) -> bool {
     (value.is_instance_of::<PyFloat>() || value.is_instance_of::<PyInt>())
@@ -121,8 +123,8 @@ pub mod list {
     }
 
     pub fn sort<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
-        pyo3::types::PyModule::import(py, BUILTINS)?
-            .getattr(SORTED)?
+        pyo3::types::PyModule::import(py, pylibs::BUILTINS)?
+            .getattr(pylibs::SORTED)?
             .call1((list,))
     }
 
@@ -258,7 +260,7 @@ pub mod list {
                 return Ok(py.None().into_bound(py));
             }
         }
-        PyString::new(py, glue).call_method1(JOIN, (list,))
+        PyString::new(py, glue).call_method1(pylibs::JOIN, (list,))
     }
     pub fn avg<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
         let length = list.len();

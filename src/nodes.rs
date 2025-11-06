@@ -4,6 +4,8 @@ use pyo3::{
 };
 use std::fmt;
 
+use crate::eval;
+
 pub type EvalResult<'py> = PyResult<Bound<'py, PyAny>>;
 pub type Bounded<'py> = Bound<'py, PyAny>;
 
@@ -20,7 +22,7 @@ impl fmt::Debug for PyObjectWrapper {
         Python::attach(|py| {
             let obj = self.0.bind(py);
             let json_result: Result<Bound<PyAny>, PyErr> = (|| {
-                let json = py.import("json")?;
+                let json = py.import(eval::pylibs::JSON)?;
                 let kwargs = PyDict::new(py);
                 let seps = PyTuple::new(
                     py,
