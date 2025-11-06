@@ -1,4 +1,5 @@
 use crate::nodes;
+
 use pyo3::prelude::*;
 use std::marker::PhantomData;
 
@@ -6,9 +7,7 @@ fn into_lit(_py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<nodes::Node> {
     if let Ok(expr) = obj.extract::<PyRef<Expr>>() {
         return Ok(expr.node.clone());
     }
-    Ok(nodes::Node::Literal(nodes::PyObjectWrapper(
-        obj.clone().unbind(),
-    )))
+    Ok(nodes::Node::Literal(nodes::Value::from_python(obj)?))
 }
 
 type OpWrapper<Op> = NameSpaceBuilder<Op, fn(Box<nodes::Node>, Op) -> nodes::Node>;
@@ -333,9 +332,9 @@ pub mod entryfuncs {
         }
     }
     #[pyfunction]
-    pub fn lit(value: &Bound<'_, PyAny>) -> Expr {
-        Expr {
-            node: nodes::Node::Literal(nodes::PyObjectWrapper(value.clone().unbind())),
-        }
+    pub fn lit(value: &Bound<'_, PyAny>) -> PyResult<Expr> {
+        Ok(Expr {
+            node: nodes::Node::Literal(nodes::Value::from_python(value)?),
+        })
     }
 }
