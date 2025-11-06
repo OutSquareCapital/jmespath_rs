@@ -1,35 +1,34 @@
 use pyo3::{
     prelude::*,
     types::{PyDict, PyString, PyTuple},
-    PyObject,
 };
 use std::fmt;
 
 pub type EvalResult<'py> = PyResult<Bound<'py, PyAny>>;
 pub type Bounded<'py> = Bound<'py, PyAny>;
 
-pub(crate) struct PyObjectWrapper(pub PyObject);
+pub(crate) struct PyObjectWrapper(pub Py<PyAny>);
 
 impl Clone for PyObjectWrapper {
     fn clone(&self) -> Self {
-        Python::with_gil(|py| Self(self.0.clone_ref(py)))
+        Python::attach(|py| Self(self.0.clone_ref(py)))
     }
 }
 
 impl fmt::Debug for PyObjectWrapper {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let obj = self.0.bind(py);
             let json_result: Result<Bound<PyAny>, PyErr> = (|| {
-                let json = py.import_bound("json")?;
-                let kwargs = PyDict::new_bound(py);
-                let seps = PyTuple::new_bound(
+                let json = py.import("json")?;
+                let kwargs = PyDict::new(py);
+                let seps = PyTuple::new(
                     py,
                     &[
-                        PyString::new_bound(py, ",").into_any(),
-                        PyString::new_bound(py, ":").into_any(),
+                        PyString::new(py, ",").into_any(),
+                        PyString::new(py, ":").into_any(),
                     ],
-                );
+                )?;
                 kwargs.set_item("separators", seps)?;
                 json.getattr("dumps")?.call((obj,), Some(&kwargs))
             })();

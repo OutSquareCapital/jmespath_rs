@@ -8,7 +8,10 @@ crate-type = ["cdylib"]
 name       = "dictexprs"
 
 [dependencies]
-pyo3 = { version = "0.22", features = ["extension-module"] }
+pyo3           = { version = "0.27.1", features = ["extension-module", "serde"] }
+serde          = "1.0"
+serde-pyobject = "0.8"
+serde_json     = { version = "1.0", features = ["preserve_order"] }
 [profile.release]
 codegen-units = 1
 lto           = "fat"

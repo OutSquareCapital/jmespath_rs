@@ -3,19 +3,18 @@ use crate::nodes::{Bounded, EvalResult, Node, PyObjectWrapper};
 use pyo3::basic::CompareOp;
 use pyo3::prelude::*;
 use pyo3::types::*;
-
 const BUILTINS: &str = "builtins";
 const SORTED: &str = "sorted";
 const JOIN: &str = "join";
 
 #[inline]
 pub fn is_number(value: &Bound<'_, PyAny>) -> bool {
-    (value.is_instance_of::<PyFloat>() || value.is_instance_of::<PyLong>())
+    (value.is_instance_of::<PyFloat>() || value.is_instance_of::<PyInt>())
         && !value.is_instance_of::<PyBool>()
 }
 #[inline]
 fn is_string(value: &Bound<'_, PyAny>) -> bool {
-    value.is_instance_of::<PyUnicode>()
+    value.is_instance_of::<PyString>()
 }
 #[inline]
 fn is_eq(left: &Bound<'_, PyAny>, right: &Bound<'_, PyAny>) -> PyResult<bool> {
@@ -62,7 +61,7 @@ pub mod list {
     }
 
     pub fn length<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
-        Ok(list.len().to_object(py).into_bound(py).into_any())
+        Ok(list.len().into_pyobject(py)?.into_any())
     }
 
     pub fn slice<'py>(
@@ -74,7 +73,7 @@ pub mod list {
     ) -> EvalResult<'py> {
         Ok(list
             .as_any()
-            .get_item(PySlice::new_bound(
+            .get_item(PySlice::new(
                 py,
                 start.unwrap_or(0),
                 end.unwrap_or(isize::MAX),
@@ -84,10 +83,10 @@ pub mod list {
     }
 
     pub fn flatten<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
-        let output = PyList::empty_bound(py);
+        let output = PyList::empty(py);
 
         for element in list.iter() {
-            if let Ok(inner_list) = element.downcast::<PyList>() {
+            if let Ok(inner_list) = element.cast::<PyList>() {
                 for item in inner_list.iter() {
                     output.append(item)?;
                 }
@@ -100,7 +99,7 @@ pub mod list {
     }
 
     pub fn filter<'py>(py: Python<'py>, list: &Bound<'py, PyList>, cond: &Node) -> EvalResult<'py> {
-        let output = PyList::empty_bound(py);
+        let output = PyList::empty(py);
 
         for element in list.iter() {
             if match_any(py, cond, &element)?.is_truthy()? {
@@ -112,7 +111,7 @@ pub mod list {
     }
 
     pub fn map<'py>(py: Python<'py>, list: &Bound<'py, PyList>, key: &Node) -> EvalResult<'py> {
-        let output = PyList::empty_bound(py);
+        let output = PyList::empty(py);
 
         for element in list.iter() {
             output.append(match_any(py, key, &element)?)?;
@@ -122,7 +121,9 @@ pub mod list {
     }
 
     pub fn sort<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
-        py.import_bound(BUILTINS)?.getattr(SORTED)?.call1((list,))
+        pyo3::types::PyModule::import(py, BUILTINS)?
+            .getattr(SORTED)?
+            .call1((list,))
     }
 
     pub fn sort_like<'py>(
@@ -131,7 +132,7 @@ pub mod list {
         key: &Node,
         kind: SortKind,
     ) -> EvalResult<'py> {
-        type SortedVec = Vec<(u8, SortKey, Option<i64>, Option<String>, PyObject)>;
+        type SortedVec = Vec<(u8, SortKey, Option<i64>, Option<String>, Py<PyAny>)>;
         let mut pairs: SortedVec = Vec::with_capacity(list.len());
 
         for element in list.iter() {
@@ -144,7 +145,7 @@ pub mod list {
             } else {
                 1
             };
-            pairs.push((has, SortKey(f), i, s, element.to_object(py)));
+            pairs.push((has, SortKey(f), i, s, element.unbind().into_any()));
         }
 
         match kind {
@@ -152,7 +153,7 @@ pub mod list {
                 pairs.sort_by(|a, b| {
                     (a.0, &a.1, a.2, a.3.as_deref()).cmp(&(b.0, &b.1, b.2, b.3.as_deref()))
                 });
-                let output = PyList::empty_bound(py);
+                let output = PyList::empty(py);
                 for (_, _, _, _, element) in pairs {
                     output.append(element.bind(py))?;
                 }
@@ -193,7 +194,7 @@ pub mod list {
 
     pub fn sum<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
         if list.len() == 0 {
-            return Ok(0.to_object(py).into_bound(py).into_any());
+            return Ok(PyFloat::new(py, 0.0).into_any());
         }
 
         let mut sum = 0.0;
@@ -204,12 +205,12 @@ pub mod list {
             sum += element.extract::<f64>()?;
         }
 
-        Ok(sum.to_object(py).into_bound(py).into_any())
+        Ok(sum.into_pyobject(py)?.into_any())
     }
 
     pub fn reverse<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
         list.as_any()
-            .get_item(PySlice::new_bound(py, isize::MAX, isize::MIN, -1isize))
+            .get_item(PySlice::new(py, isize::MAX, isize::MIN, -1isize))
             .map(|result| result.into_any())
     }
     pub fn min_max<'py>(
@@ -257,7 +258,7 @@ pub mod list {
                 return Ok(py.None().into_bound(py));
             }
         }
-        PyString::new_bound(py, glue).call_method1(JOIN, (list,))
+        PyString::new(py, glue).call_method1(JOIN, (list,))
     }
     pub fn avg<'py>(py: Python<'py>, list: &Bound<'py, PyList>) -> EvalResult<'py> {
         let length = list.len();
@@ -275,7 +276,7 @@ pub mod list {
         }
 
         let average = sum / (length as f64);
-        Ok(average.to_object(py).into_bound(py).into_any())
+        Ok(average.into_pyobject(py)?.into_any())
     }
     pub fn contains<'py>(
         py: Python<'py>,
@@ -291,7 +292,7 @@ pub mod list {
             }
         }
 
-        Ok(found.to_object(py).into_bound(py).into_any())
+        Ok(PyBool::new(py, found).as_any().clone())
     }
 }
 
@@ -317,7 +318,7 @@ pub mod strs {
     use super::*;
 
     pub fn length<'py>(py: Python<'py>, string: &Bound<'py, PyString>) -> EvalResult<'py> {
-        Ok(string.len()?.to_object(py).into_bound(py).into_any())
+        Ok(string.len()?.into_pyobject(py)?.into_any())
     }
 
     pub fn contains<'py>(
@@ -325,24 +326,16 @@ pub mod strs {
         string: &Bound<'py, PyString>,
         search: &str,
     ) -> EvalResult<'py> {
-        Ok(string
-            .to_str()?
-            .contains(search)
-            .to_object(py)
-            .into_bound(py)
-            .into_any())
+        let b = string.to_str()?.contains(search);
+        Ok(PyBool::new(py, b).as_any().clone())
     }
     pub fn starts_with<'py>(
         py: Python<'py>,
         string: &Bound<'py, PyString>,
         prefix: &str,
     ) -> EvalResult<'py> {
-        Ok(string
-            .to_str()?
-            .starts_with(prefix)
-            .to_object(py)
-            .into_bound(py)
-            .into_any())
+        let b = string.to_str()?.starts_with(prefix);
+        Ok(PyBool::new(py, b).as_any().clone())
     }
 
     pub fn ends_with<'py>(
@@ -350,12 +343,8 @@ pub mod strs {
         string: &Bound<'py, PyString>,
         suffix: &str,
     ) -> EvalResult<'py> {
-        Ok(string
-            .to_str()?
-            .ends_with(suffix)
-            .to_object(py)
-            .into_bound(py)
-            .into_any())
+        let b = string.to_str()?.ends_with(suffix);
+        Ok(PyBool::new(py, b).as_any().clone())
     }
 
     pub fn slice<'py>(
@@ -367,7 +356,7 @@ pub mod strs {
     ) -> EvalResult<'py> {
         Ok(string
             .as_any()
-            .get_item(PySlice::new_bound(
+            .get_item(PySlice::new(
                 py,
                 start.unwrap_or(0),
                 end.unwrap_or(isize::MAX),
@@ -377,7 +366,7 @@ pub mod strs {
     }
 
     pub fn reverse<'py>(py: Python<'py>, string: &Bound<'py, PyString>) -> EvalResult<'py> {
-        Ok(PyString::new_bound(py, &string.to_str()?.chars().rev().collect::<String>()).into_any())
+        Ok(PyString::new(py, &string.to_str()?.chars().rev().collect::<String>()).into_any())
     }
 }
 
@@ -405,7 +394,7 @@ pub fn or<'py>(py: Python<'py>, value: &Bounded<'py>, a: &Node, b: &Node) -> Eva
 
 pub fn not<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> EvalResult<'py> {
     let result = !match_any(py, x, value)?.is_truthy()?;
-    Ok(result.to_object(py).into_bound(py).into_any())
+    Ok(PyBool::new(py, result).as_any().clone())
 }
 
 pub fn cmp_bool<'py>(
@@ -419,24 +408,18 @@ pub fn cmp_bool<'py>(
     } else {
         false
     };
-    Ok(result.to_object(py).into_bound(py).into_any())
+    Ok(PyBool::new(py, result).as_any().clone())
 }
 
 pub fn abs<'py>(py: Python<'py>, number: &Bounded<'py>) -> EvalResult<'py> {
-    Ok(number
-        .extract::<f64>()?
-        .abs()
-        .to_object(py)
-        .into_bound(py)
-        .into_any())
+    Ok(number.extract::<f64>()?.abs().into_pyobject(py)?.into_any())
 }
 
 pub fn ceil<'py>(py: Python<'py>, number: &Bounded<'py>) -> EvalResult<'py> {
     Ok(number
         .extract::<f64>()?
         .ceil()
-        .to_object(py)
-        .into_bound(py)
+        .into_pyobject(py)?
         .into_any())
 }
 
@@ -444,17 +427,16 @@ pub fn floor<'py>(py: Python<'py>, number: &Bounded<'py>) -> EvalResult<'py> {
     Ok(number
         .extract::<f64>()?
         .floor()
-        .to_object(py)
-        .into_bound(py)
+        .into_pyobject(py)?
         .into_any())
 }
 
 pub fn merge<'py>(py: Python<'py>, value: &Bounded<'py>, items: &[Node]) -> EvalResult<'py> {
-    let output = PyDict::new_bound(py);
+    let output = PyDict::new(py);
 
     for item in items {
         let evaluated = match_any(py, item, value)?;
-        if let Ok(dict) = evaluated.downcast::<PyDict>() {
+        if let Ok(dict) = evaluated.cast::<PyDict>() {
             output.update(dict.as_mapping())?;
         } else {
             return Ok(py.None().into_bound(py));
@@ -475,9 +457,9 @@ pub fn coalesce<'py>(py: Python<'py>, value: &Bounded<'py>, items: &[Node]) -> E
 }
 
 pub fn eq<'py>(py: Python<'py>, left: &Bounded<'py>, right: &Bounded<'py>) -> EvalResult<'py> {
-    Ok(is_eq(left, right)?.to_object(py).into_bound(py).into_any())
+    Ok(PyBool::new(py, is_eq(left, right)?).as_any().clone())
 }
 
 pub fn ne<'py>(py: Python<'py>, left: &Bounded<'py>, right: &Bounded<'py>) -> EvalResult<'py> {
-    Ok(not_eq(left, right)?.to_object(py).into_bound(py).into_any())
+    Ok(PyBool::new(py, not_eq(left, right)?).as_any().clone())
 }

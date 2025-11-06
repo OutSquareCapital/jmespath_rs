@@ -2,12 +2,12 @@ use crate::nodes;
 use pyo3::prelude::*;
 use std::marker::PhantomData;
 
-fn into_lit(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<nodes::Node> {
+fn into_lit(_py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<nodes::Node> {
     if let Ok(expr) = obj.extract::<PyRef<Expr>>() {
         return Ok(expr.node.clone());
     }
     Ok(nodes::Node::Literal(nodes::PyObjectWrapper(
-        obj.to_object(py),
+        obj.clone().unbind(),
     )))
 }
 
@@ -317,14 +317,16 @@ pub mod entryfuncs {
         Expr::new().list()
     }
 
-    #[pyfunction(signature = (*args))]
+    #[pyfunction]
+    #[pyo3(signature = (*args))]
     pub fn merge(args: Vec<Expr>) -> Expr {
         Expr {
             node: nodes::Node::Merge(args.into_iter().map(|q| q.node).collect()),
         }
     }
 
-    #[pyfunction(signature = (*args))]
+    #[pyfunction]
+    #[pyo3(signature = (*args))]
     pub fn coalesce(args: Vec<Expr>) -> Expr {
         Expr {
             node: nodes::Node::Coalesce(args.into_iter().map(|q| q.node).collect()),
@@ -332,8 +334,8 @@ pub mod entryfuncs {
     }
     #[pyfunction]
     pub fn lit(value: &Bound<'_, PyAny>) -> Expr {
-        Python::with_gil(|py| Expr {
-            node: nodes::Node::Literal(nodes::PyObjectWrapper(value.to_object(py))),
-        })
+        Expr {
+            node: nodes::Node::Literal(nodes::PyObjectWrapper(value.clone().unbind())),
+        }
     }
 }
