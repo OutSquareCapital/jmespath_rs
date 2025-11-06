@@ -292,7 +292,7 @@ pub mod list {
             }
         }
 
-        Ok(PyBool::new(py, found).as_any().clone())
+        Ok(PyBool::new(py, found).to_owned().into_any())
     }
 }
 
@@ -327,7 +327,7 @@ pub mod strs {
         search: &str,
     ) -> EvalResult<'py> {
         let b = string.to_str()?.contains(search);
-        Ok(PyBool::new(py, b).as_any().clone())
+        Ok(PyBool::new(py, b).to_owned().into_any())
     }
     pub fn starts_with<'py>(
         py: Python<'py>,
@@ -335,7 +335,7 @@ pub mod strs {
         prefix: &str,
     ) -> EvalResult<'py> {
         let b = string.to_str()?.starts_with(prefix);
-        Ok(PyBool::new(py, b).as_any().clone())
+        Ok(PyBool::new(py, b).to_owned().into_any())
     }
 
     pub fn ends_with<'py>(
@@ -344,7 +344,7 @@ pub mod strs {
         suffix: &str,
     ) -> EvalResult<'py> {
         let b = string.to_str()?.ends_with(suffix);
-        Ok(PyBool::new(py, b).as_any().clone())
+        Ok(PyBool::new(py, b).to_owned().into_any())
     }
 
     pub fn slice<'py>(
@@ -394,7 +394,7 @@ pub fn or<'py>(py: Python<'py>, value: &Bounded<'py>, a: &Node, b: &Node) -> Eva
 
 pub fn not<'py>(py: Python<'py>, value: &Bounded<'py>, x: &Node) -> EvalResult<'py> {
     let result = !match_any(py, x, value)?.is_truthy()?;
-    Ok(PyBool::new(py, result).as_any().clone())
+    Ok(PyBool::new(py, result).to_owned().into_any())
 }
 
 pub fn cmp_bool<'py>(
@@ -408,7 +408,7 @@ pub fn cmp_bool<'py>(
     } else {
         false
     };
-    Ok(PyBool::new(py, result).as_any().clone())
+    Ok(PyBool::new(py, result).to_owned().into_any())
 }
 
 pub fn abs<'py>(py: Python<'py>, number: &Bounded<'py>) -> EvalResult<'py> {
@@ -457,9 +457,9 @@ pub fn coalesce<'py>(py: Python<'py>, value: &Bounded<'py>, items: &[Node]) -> E
 }
 
 pub fn eq<'py>(py: Python<'py>, left: &Bounded<'py>, right: &Bounded<'py>) -> EvalResult<'py> {
-    Ok(PyBool::new(py, is_eq(left, right)?).as_any().clone())
+    Ok(PyBool::new(py, is_eq(left, right)?).to_owned().into_any())
 }
 
 pub fn ne<'py>(py: Python<'py>, left: &Bounded<'py>, right: &Bounded<'py>) -> EvalResult<'py> {
-    Ok(PyBool::new(py, not_eq(left, right)?).as_any().clone())
+    Ok(PyBool::new(py, not_eq(left, right)?).to_owned().into_any())
 }
