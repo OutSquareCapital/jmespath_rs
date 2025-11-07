@@ -23,7 +23,7 @@ def _update_readme() -> bool:
 
 
 def run() -> None:
-    config = BenchmarkConfig(data_sizes=pc.Seq.from_(10, 50, 250, 1250), runs=100)
+    config = BenchmarkConfig(data_sizes=pc.Seq.from_(10, 50, 250, 500), runs=100)
     data = config.get_data()
 
     sample = data.iter_values().first()
@@ -41,7 +41,6 @@ def run() -> None:
     if _update_readme():
         (
             CASES.iter()
-            .map(lambda case: case.warmup())
             .map(_get_res)
             .flatten()
             .into(pl.LazyFrame)
