@@ -1,5 +1,5 @@
 use crate::matchs::match_any;
-use crate::nodes::{EvalResult, Node, Value};
+use crate::nodes::{Node, Value};
 pub mod list {
     use super::*;
 
@@ -21,7 +21,7 @@ pub mod list {
         }
     }
 
-    pub fn index(list: &[Value], i: isize) -> EvalResult {
+    pub fn index(list: &[Value], i: isize) -> Result<Value, String> {
         let len = list.len() as isize;
         let idx = if i < 0 { len + i } else { i };
         Ok(if idx < 0 || idx >= len {
@@ -31,7 +31,7 @@ pub mod list {
         })
     }
 
-    pub fn length(list: &[Value]) -> EvalResult {
+    pub fn length(list: &[Value]) -> Result<Value, String> {
         Ok(Value::Number(list.len() as f64))
     }
 
@@ -40,7 +40,7 @@ pub mod list {
         start: &Option<isize>,
         end: &Option<isize>,
         step: &Option<isize>,
-    ) -> EvalResult {
+    ) -> Result<Value, String> {
         let len = list.len() as isize;
         let step = step.unwrap_or(1);
         if step == 0 {
@@ -77,7 +77,7 @@ pub mod list {
         Ok(Value::List(result))
     }
 
-    pub fn flatten(list: &[Value]) -> EvalResult {
+    pub fn flatten(list: &[Value]) -> Result<Value, String> {
         Ok(Value::List(list.iter().fold(Vec::new(), |mut acc, v| {
             match v {
                 Value::List(inner) => acc.extend(inner.iter().cloned()),
@@ -87,7 +87,7 @@ pub mod list {
         })))
     }
 
-    pub fn filter(list: &[Value], cond: &Node) -> EvalResult {
+    pub fn filter(list: &[Value], cond: &Node) -> Result<Value, String> {
         Ok(Value::List(
             list.iter()
                 .filter_map(|v| match match_any(cond, v) {
@@ -98,14 +98,14 @@ pub mod list {
         ))
     }
 
-    pub fn map(list: &[Value], key: &Node) -> EvalResult {
+    pub fn map(list: &[Value], key: &Node) -> Result<Value, String> {
         list.iter()
             .map(|v| match_any(key, v))
             .collect::<Result<Vec<_>, _>>()
             .map(Value::List)
     }
 
-    pub fn sort(list: &[Value]) -> EvalResult {
+    pub fn sort(list: &[Value]) -> Result<Value, String> {
         let mut sorted = list.to_vec();
         sorted.sort_by(|a, b| match (a, b) {
             (Value::Number(x), Value::Number(y)) => {
@@ -117,7 +117,7 @@ pub mod list {
         Ok(Value::List(sorted))
     }
 
-    pub fn sort_like(list: &[Value], key: &Node, kind: SortKind) -> EvalResult {
+    pub fn sort_like(list: &[Value], key: &Node, kind: SortKind) -> Result<Value, String> {
         let mut pairs: Vec<_> = list
             .iter()
             .map(|v| {
@@ -162,19 +162,19 @@ pub mod list {
         }
     }
 
-    pub fn sort_by(list: &[Value], key: &Node) -> EvalResult {
+    pub fn sort_by(list: &[Value], key: &Node) -> Result<Value, String> {
         sort_like(list, key, SortKind::SortBy)
     }
 
-    pub fn min_by(list: &[Value], key: &Node) -> EvalResult {
+    pub fn min_by(list: &[Value], key: &Node) -> Result<Value, String> {
         sort_like(list, key, SortKind::MinBy)
     }
 
-    pub fn max_by(list: &[Value], key: &Node) -> EvalResult {
+    pub fn max_by(list: &[Value], key: &Node) -> Result<Value, String> {
         sort_like(list, key, SortKind::MaxBy)
     }
 
-    pub fn sum(list: &[Value]) -> EvalResult {
+    pub fn sum(list: &[Value]) -> Result<Value, String> {
         if list.is_empty() {
             return Ok(Value::Number(0.0));
         }
@@ -188,11 +188,11 @@ pub mod list {
             .or(Ok(Value::Null))
     }
 
-    pub fn reverse(list: &[Value]) -> EvalResult {
+    pub fn reverse(list: &[Value]) -> Result<Value, String> {
         Ok(Value::List(list.iter().rev().cloned().collect()))
     }
 
-    pub fn min_max(list: &[Value], is_max: bool) -> EvalResult {
+    pub fn min_max(list: &[Value], is_max: bool) -> Result<Value, String> {
         let mut iter = list.iter();
         let first = iter.next().ok_or_else(|| "empty list".to_string())?;
         let expect_num = first.is_number();
@@ -228,7 +228,7 @@ pub mod list {
         .or(Ok(Value::Null))
     }
 
-    pub fn join(list: &[Value], glue: &str) -> EvalResult {
+    pub fn join(list: &[Value], glue: &str) -> Result<Value, String> {
         if list.iter().any(|v| !v.is_string()) {
             return Ok(Value::Null);
         }
@@ -240,7 +240,7 @@ pub mod list {
         ))
     }
 
-    pub fn avg(list: &[Value]) -> EvalResult {
+    pub fn avg(list: &[Value]) -> Result<Value, String> {
         if list.is_empty() {
             return Ok(Value::Null);
         }
@@ -250,7 +250,7 @@ pub mod list {
         })
     }
 
-    pub fn contains(list: &[Value], search: &Value) -> EvalResult {
+    pub fn contains(list: &[Value], search: &Value) -> Result<Value, String> {
         Ok(Value::Bool(list.iter().any(|v| v.eq_strict(search))))
     }
 }
@@ -259,17 +259,17 @@ pub mod structs {
     use super::*;
     use std::collections::HashMap;
 
-    pub fn field(dict: &HashMap<String, Value>, name: &str) -> EvalResult {
+    pub fn field(dict: &HashMap<String, Value>, name: &str) -> Result<Value, String> {
         Ok(dict.get(name).cloned().unwrap_or(Value::Null))
     }
 
-    pub fn keys(dict: &HashMap<String, Value>) -> EvalResult {
+    pub fn keys(dict: &HashMap<String, Value>) -> Result<Value, String> {
         Ok(Value::List(
             dict.keys().map(|k| Value::String(k.clone())).collect(),
         ))
     }
 
-    pub fn values(dict: &HashMap<String, Value>) -> EvalResult {
+    pub fn values(dict: &HashMap<String, Value>) -> Result<Value, String> {
         Ok(Value::List(dict.values().cloned().collect()))
     }
 }
@@ -277,19 +277,19 @@ pub mod structs {
 pub mod strs {
     use super::*;
 
-    pub fn length(string: &str) -> EvalResult {
+    pub fn length(string: &str) -> Result<Value, String> {
         Ok(Value::Number(string.chars().count() as f64))
     }
 
-    pub fn contains(string: &str, search: &str) -> EvalResult {
+    pub fn contains(string: &str, search: &str) -> Result<Value, String> {
         Ok(Value::Bool(string.contains(search)))
     }
 
-    pub fn starts_with(string: &str, prefix: &str) -> EvalResult {
+    pub fn starts_with(string: &str, prefix: &str) -> Result<Value, String> {
         Ok(Value::Bool(string.starts_with(prefix)))
     }
 
-    pub fn ends_with(string: &str, suffix: &str) -> EvalResult {
+    pub fn ends_with(string: &str, suffix: &str) -> Result<Value, String> {
         Ok(Value::Bool(string.ends_with(suffix)))
     }
 
@@ -298,7 +298,7 @@ pub mod strs {
         start: &Option<isize>,
         end: &Option<isize>,
         step: &Option<isize>,
-    ) -> EvalResult {
+    ) -> Result<Value, String> {
         let chars: Vec<char> = string.chars().collect();
         let len = chars.len() as isize;
         let step = step.unwrap_or(1);
@@ -336,16 +336,16 @@ pub mod strs {
         Ok(Value::String(result))
     }
 
-    pub fn reverse(string: &str) -> EvalResult {
+    pub fn reverse(string: &str) -> Result<Value, String> {
         Ok(Value::String(string.chars().rev().collect()))
     }
 }
 
-pub fn literal(value: &Value) -> EvalResult {
+pub fn literal(value: &Value) -> Result<Value, String> {
     Ok(value.clone())
 }
 
-pub fn and(value: &Value, a: &Node, b: &Node) -> EvalResult {
+pub fn and(value: &Value, a: &Node, b: &Node) -> Result<Value, String> {
     let left = match_any(a, value)?;
     if left.is_truthy() {
         match_any(b, value)
@@ -354,7 +354,7 @@ pub fn and(value: &Value, a: &Node, b: &Node) -> EvalResult {
     }
 }
 
-pub fn or(value: &Value, a: &Node, b: &Node) -> EvalResult {
+pub fn or(value: &Value, a: &Node, b: &Node) -> Result<Value, String> {
     let left = match_any(a, value)?;
     if left.is_truthy() {
         Ok(left)
@@ -363,39 +363,39 @@ pub fn or(value: &Value, a: &Node, b: &Node) -> EvalResult {
     }
 }
 
-pub fn not(value: &Value, x: &Node) -> EvalResult {
+pub fn not(value: &Value, x: &Node) -> Result<Value, String> {
     Ok(Value::Bool(!match_any(x, value)?.is_truthy()))
 }
 
-pub fn cmp_bool(left: &Value, right: &Value, op: fn(f64, f64) -> bool) -> EvalResult {
+pub fn cmp_bool(left: &Value, right: &Value, op: fn(f64, f64) -> bool) -> Result<Value, String> {
     match (left.as_number(), right.as_number()) {
         (Some(l), Some(r)) => Ok(Value::Bool(op(l, r))),
         _ => Ok(Value::Bool(false)),
     }
 }
 
-pub fn abs(number: &Value) -> EvalResult {
+pub fn abs(number: &Value) -> Result<Value, String> {
     number
         .as_number()
         .map(|n| Value::Number(n.abs()))
         .ok_or_else(|| "not a number".to_string())
 }
 
-pub fn ceil(number: &Value) -> EvalResult {
+pub fn ceil(number: &Value) -> Result<Value, String> {
     number
         .as_number()
         .map(|n| Value::Number(n.ceil()))
         .ok_or_else(|| "not a number".to_string())
 }
 
-pub fn floor(number: &Value) -> EvalResult {
+pub fn floor(number: &Value) -> Result<Value, String> {
     number
         .as_number()
         .map(|n| Value::Number(n.floor()))
         .ok_or_else(|| "not a number".to_string())
 }
 
-pub fn merge(value: &Value, items: &[Node]) -> EvalResult {
+pub fn merge(value: &Value, items: &[Node]) -> Result<Value, String> {
     use std::collections::HashMap;
     let mut output = HashMap::new();
 
@@ -409,7 +409,7 @@ pub fn merge(value: &Value, items: &[Node]) -> EvalResult {
     Ok(Value::Dict(output))
 }
 
-pub fn coalesce(value: &Value, items: &[Node]) -> EvalResult {
+pub fn coalesce(value: &Value, items: &[Node]) -> Result<Value, String> {
     items
         .iter()
         .find_map(|item| match match_any(item, value) {
@@ -419,10 +419,10 @@ pub fn coalesce(value: &Value, items: &[Node]) -> EvalResult {
         .unwrap_or(Ok(Value::Null))
 }
 
-pub fn eq(left: &Value, right: &Value) -> EvalResult {
+pub fn eq(left: &Value, right: &Value) -> Result<Value, String> {
     Ok(Value::Bool(left.eq_strict(right)))
 }
 
-pub fn ne(left: &Value, right: &Value) -> EvalResult {
+pub fn ne(left: &Value, right: &Value) -> Result<Value, String> {
     Ok(Value::Bool(!left.eq_strict(right)))
 }

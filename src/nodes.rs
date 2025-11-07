@@ -1,4 +1,3 @@
-pub type EvalResult = Result<Value, String>;
 use pyo3::prelude::*;
 use pyo3::types::*;
 use std::collections::HashMap;

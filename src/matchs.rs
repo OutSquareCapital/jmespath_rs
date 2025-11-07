@@ -1,7 +1,7 @@
 use crate::eval;
-use crate::nodes::{ComparisonOp, EvalResult, ListOp, Node, ScalarOp, StrOp, StructOp, Value};
+use crate::nodes::{ComparisonOp, ListOp, Node, ScalarOp, StrOp, StructOp, Value};
 
-pub fn match_any(node: &Node, value: &Value) -> EvalResult {
+pub fn match_any(node: &Node, value: &Value) -> Result<Value, String> {
     match node {
         Node::This => Ok(value.clone()),
         Node::Literal(obj) => eval::literal(obj),
@@ -18,7 +18,7 @@ pub fn match_any(node: &Node, value: &Value) -> EvalResult {
     }
 }
 impl ScalarOp {
-    pub fn eval(&self, number: &Value) -> EvalResult {
+    pub fn eval(&self, number: &Value) -> Result<Value, String> {
         match self {
             Self::Abs => eval::abs(number),
             Self::Ceil => eval::ceil(number),
@@ -27,7 +27,7 @@ impl ScalarOp {
     }
 }
 impl ListOp {
-    pub fn eval(&self, value: &Value) -> EvalResult {
+    pub fn eval(&self, value: &Value) -> Result<Value, String> {
         match value.as_list() {
             Some(list) => match self {
                 Self::Length => eval::list::length(list),
@@ -55,7 +55,7 @@ impl ListOp {
     }
 }
 impl StrOp {
-    pub fn eval(&self, value: &Value) -> EvalResult {
+    pub fn eval(&self, value: &Value) -> Result<Value, String> {
         match value.as_string() {
             Some(string) => match self {
                 Self::Slice { start, end, step } => eval::strs::slice(string, start, end, step),
@@ -70,7 +70,7 @@ impl StrOp {
     }
 }
 impl StructOp {
-    pub fn eval(&self, value: &Value) -> EvalResult {
+    pub fn eval(&self, value: &Value) -> Result<Value, String> {
         match value.as_dict() {
             Some(dict) => match self {
                 Self::Field(name) => eval::structs::field(dict, name),
@@ -82,7 +82,7 @@ impl StructOp {
     }
 }
 impl ComparisonOp {
-    pub fn eval(&self, value: &Value, base_evaluated: &Value) -> EvalResult {
+    pub fn eval(&self, value: &Value, base_evaluated: &Value) -> Result<Value, String> {
         match self {
             Self::Eq(other_node) => eval::eq(base_evaluated, &match_any(other_node, value)?),
             Self::Ne(other_node) => eval::ne(base_evaluated, &match_any(other_node, value)?),
