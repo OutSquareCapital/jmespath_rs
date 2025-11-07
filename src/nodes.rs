@@ -33,7 +33,6 @@ impl Value {
             serde_json::Value::Null => Ok(Value::Null),
             serde_json::Value::Bool(b) => Ok(Value::Bool(b)),
             serde_json::Value::Number(n) => {
-                // `n.as_f64()` est requis car serde_json::Number peut être i64, u64, ou f64
                 let f = n.as_f64().ok_or_else(|| {
                     pyo3::exceptions::PyValueError::new_err("Nombre JSON non représentable en f64")
                 })?;
@@ -51,7 +50,6 @@ impl Value {
             serde_json::Value::Object(map) => {
                 let mut out_map = HashMap::new();
                 for (k, v) in map {
-                    // Appel récursif
                     out_map.insert(k, Value::from_serde_value(v)?);
                 }
                 Ok(Value::Dict(out_map))
