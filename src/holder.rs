@@ -19,6 +19,10 @@ impl LazyQuery {
         let v = match_any(&self.node, &self.data);
         Ok(pythonize(py, &v.unwrap()).unwrap().into_any().unbind())
     }
+    pub fn to_bytes(&self) -> PyResult<Vec<u8>> {
+        let v = match_any(&self.node, &self.data);
+        Ok(sd::to_vec(&v.unwrap()).unwrap())
+    }
 }
 
 #[pyclass(module = "dictexprs", name = "DataJson")]
