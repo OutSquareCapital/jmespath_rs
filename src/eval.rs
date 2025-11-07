@@ -17,24 +17,24 @@ pub mod list {
     use super::*;
 
     #[inline]
-    pub fn index(list: &[sd::Value], i: isize) -> sd::Value {
+    pub fn index<'a>(list: &'a [sd::Value], i: isize) -> &'a sd::Value {
         let len = list.len() as isize;
         let idx = if i < 0 { len + i } else { i };
-        list[idx as usize].clone()
+        &list[idx as usize]
     }
 
     #[inline]
-    pub fn length(list: &[sd::Value]) -> sd::Value {
-        sd::Value::Number(list.len().into())
+    pub fn length(list: &[sd::Value]) -> usize {
+        list.len()
     }
 
     #[inline]
-    pub fn slice(
-        list: &[sd::Value],
+    pub fn slice<'a>(
+        list: &'a [sd::Value],
         start: &Option<isize>,
         end: &Option<isize>,
         step: &Option<isize>,
-    ) -> sd::Value {
+    ) -> Vec<&'a sd::Value> {
         let len = list.len() as isize;
         let step = step.unwrap_or(1);
         assert!(step != 0, "slice step cannot be zero");
@@ -53,67 +53,66 @@ pub mod list {
             end.min(len)
         };
 
-        let result: Vec<sd::Value> = if step > 0 {
+        let result: Vec<&sd::Value> = if step > 0 {
             (start..end)
                 .step_by(step as usize)
-                .map(|i| list[i as usize].clone())
+                .map(|i| &list[i as usize])
                 .collect()
         } else {
             (end + 1..=start)
                 .rev()
                 .step_by((-step) as usize)
-                .map(|i| list[i as usize].clone())
+                .map(|i| &list[i as usize])
                 .collect()
         };
 
-        sd::Value::Array(result)
+        result
     }
 
     #[inline]
-    pub fn flatten(list: &[sd::Value]) -> sd::Value {
-        sd::Value::Array(list.iter().fold(Vec::new(), |mut acc, v| {
+    pub fn flatten<'a>(list: &'a [sd::Value]) -> Vec<&'a sd::Value> {
+        let mut refs = Vec::new();
+        for v in list {
             match v {
-                sd::Value::Array(inner) => acc.extend(inner.iter().cloned()),
-                other => acc.push(other.clone()),
+                sd::Value::Array(inner) => refs.extend(inner.iter()),
+                other => refs.push(other),
             }
-            acc
-        }))
+        }
+        refs
     }
 
     #[inline]
-    pub fn filter<F>(list: &[sd::Value], predicate: F) -> sd::Value
+    pub fn filter<'a, F>(list: &'a [sd::Value], predicate: F) -> Vec<&'a sd::Value>
     where
         F: Fn(&sd::Value) -> bool,
     {
-        sd::Value::Array(list.iter().filter(|v| predicate(v)).cloned().collect())
+        list.iter().filter(|v| predicate(v)).collect()
     }
 
     #[inline]
-    pub fn map<F>(list: &[sd::Value], transform: F) -> sd::Value
+    pub fn reverse<'a>(list: &'a [sd::Value]) -> Vec<&'a sd::Value> {
+        list.iter().rev().collect()
+    }
+
+    #[inline]
+    pub fn map<F>(list: &[sd::Value], transform: F) -> Vec<sd::Value>
     where
         F: Fn(&sd::Value) -> sd::Value,
     {
-        sd::Value::Array(list.iter().map(transform).collect())
+        list.iter().map(transform).collect()
     }
 
     #[inline]
-    pub fn reverse(list: &[sd::Value]) -> sd::Value {
-        sd::Value::Array(list.iter().rev().cloned().collect())
+    pub fn join(list: &[sd::Value], glue: &str) -> String {
+        list.iter()
+            .map(|v| v.as_str().unwrap())
+            .collect::<Vec<_>>()
+            .join(glue)
     }
 
     #[inline]
-    pub fn join(list: &[sd::Value], glue: &str) -> sd::Value {
-        sd::Value::String(
-            list.iter()
-                .map(|v| v.as_str().unwrap())
-                .collect::<Vec<_>>()
-                .join(glue),
-        )
-    }
-
-    #[inline]
-    pub fn contains(list: &[sd::Value], search: &sd::Value) -> sd::Value {
-        sd::Value::Bool(list.contains(search))
+    pub fn contains(list: &[sd::Value], search: &sd::Value) -> bool {
+        list.contains(search)
     }
 }
 
@@ -121,42 +120,46 @@ pub mod structs {
     use super::*;
 
     #[inline]
-    pub fn field(dict: &sd::Map<String, sd::Value>, name: &str) -> sd::Value {
-        dict[name].clone()
+    pub fn field<'a>(dict: &'a sd::Map<String, sd::Value>, name: &str) -> &'a sd::Value {
+        &dict[name]
     }
 
     #[inline]
-    pub fn keys(dict: &sd::Map<String, sd::Value>) -> sd::Value {
-        sd::Value::Array(dict.keys().map(|k| sd::Value::String(k.clone())).collect())
+    pub fn keys(dict: &sd::Map<String, sd::Value>) -> Vec<String> {
+        dict.keys().cloned().collect()
     }
 
     #[inline]
-    pub fn values(dict: &sd::Map<String, sd::Value>) -> sd::Value {
-        sd::Value::Array(dict.values().cloned().collect())
+    pub fn values<'a>(dict: &'a sd::Map<String, sd::Value>) -> Vec<&'a sd::Value> {
+        dict.values().collect()
     }
 }
 
 pub mod strs {
-    use super::*;
 
     #[inline]
-    pub fn length(string: &str) -> sd::Value {
-        sd::Value::Number(string.chars().count().into())
+    pub fn length(string: &str) -> usize {
+        string.chars().count()
     }
 
     #[inline]
-    pub fn contains(string: &str, search: &str) -> sd::Value {
-        sd::Value::Bool(string.contains(search))
+    pub fn contains(string: &str, search: &str) -> bool {
+        string.contains(search)
     }
 
     #[inline]
-    pub fn starts_with(string: &str, prefix: &str) -> sd::Value {
-        sd::Value::Bool(string.starts_with(prefix))
+    pub fn starts_with(string: &str, prefix: &str) -> bool {
+        string.starts_with(prefix)
     }
 
     #[inline]
-    pub fn ends_with(string: &str, suffix: &str) -> sd::Value {
-        sd::Value::Bool(string.ends_with(suffix))
+    pub fn ends_with(string: &str, suffix: &str) -> bool {
+        string.ends_with(suffix)
+    }
+
+    #[inline]
+    pub fn reverse(string: &str) -> String {
+        string.chars().rev().collect()
     }
 
     #[inline]
@@ -165,7 +168,7 @@ pub mod strs {
         start: &Option<isize>,
         end: &Option<isize>,
         step: &Option<isize>,
-    ) -> sd::Value {
+    ) -> String {
         let chars: Vec<char> = string.chars().collect();
         let len = chars.len() as isize;
         let step = step.unwrap_or(1);
@@ -185,7 +188,7 @@ pub mod strs {
             end.min(len)
         };
 
-        let result: String = if step > 0 {
+        if step > 0 {
             (start..end)
                 .step_by(step as usize)
                 .map(|i| chars[i as usize])
@@ -196,46 +199,39 @@ pub mod strs {
                 .step_by((-step) as usize)
                 .map(|i| chars[i as usize])
                 .collect()
-        };
-
-        sd::Value::String(result)
-    }
-
-    #[inline]
-    pub fn reverse(string: &str) -> sd::Value {
-        sd::Value::String(string.chars().rev().collect())
+        }
     }
 }
 
 #[inline]
-pub fn literal(value: &sd::Value) -> sd::Value {
-    value.clone()
+pub fn literal<'a>(value: &'a sd::Value) -> &'a sd::Value {
+    value
 }
 
 #[inline]
-pub fn eq(left: &sd::Value, right: &sd::Value) -> sd::Value {
-    sd::Value::Bool(left == right)
+pub fn eq(left: &sd::Value, right: &sd::Value) -> bool {
+    left == right
 }
 
 #[inline]
-pub fn ne(left: &sd::Value, right: &sd::Value) -> sd::Value {
-    sd::Value::Bool(left != right)
+pub fn ne(left: &sd::Value, right: &sd::Value) -> bool {
+    left != right
 }
 
 #[inline]
-pub fn cmp_bool(left: &sd::Value, right: &sd::Value, op: fn(f64, f64) -> bool) -> sd::Value {
+pub fn cmp_bool(left: &sd::Value, right: &sd::Value, op: fn(f64, f64) -> bool) -> bool {
     let l = left.as_f64().unwrap();
     let r = right.as_f64().unwrap();
-    sd::Value::Bool(op(l, r))
+    op(l, r)
 }
 
 #[inline]
-pub fn coalesce(items: &[Node], value: &sd::Value) -> sd::Value {
-    items
-        .iter()
-        .find_map(|item| match match_any(item, value) {
-            Ok(v) if !v.is_null() => Some(v),
-            _ => None,
-        })
-        .unwrap_or(sd::Value::Null)
+pub fn coalesce(items: &[Node], value: &sd::Value) -> Option<sd::Value> {
+    for item in items {
+        let result = match_any(item, value);
+        if !result.is_null() {
+            return Some(result);
+        }
+    }
+    None
 }
