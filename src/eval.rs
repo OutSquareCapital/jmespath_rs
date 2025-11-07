@@ -2,6 +2,17 @@ use crate::matchs::match_any;
 use crate::nodes::Node;
 use serde_json as sd;
 
+fn is_truthy(value: &sd::Value) -> bool {
+    match value {
+        sd::Value::Null => false,
+        sd::Value::Bool(b) => *b,
+        sd::Value::Number(n) => n.as_f64().map_or(false, |f| f != 0.0),
+        sd::Value::String(s) => !s.is_empty(),
+        sd::Value::Array(a) => !a.is_empty(),
+        sd::Value::Object(o) => !o.is_empty(),
+    }
+}
+
 pub mod list {
     use super::*;
 
@@ -78,7 +89,7 @@ pub mod list {
         Ok(sd::Value::Array(
             list.iter()
                 .filter_map(|v| match match_any(cond, v) {
-                    Ok(res) if !res.is_null() => Some(v.clone()),
+                    Ok(res) if is_truthy(&res) => Some(v.clone()),
                     _ => None,
                 })
                 .collect(),
@@ -204,7 +215,7 @@ pub fn literal(value: &sd::Value) -> Result<sd::Value, String> {
 
 pub fn and(value: &sd::Value, a: &Node, b: &Node) -> Result<sd::Value, String> {
     let left = match_any(a, value)?;
-    if !left.is_null() {
+    if is_truthy(&left) {
         match_any(b, value)
     } else {
         Ok(left)
@@ -213,7 +224,7 @@ pub fn and(value: &sd::Value, a: &Node, b: &Node) -> Result<sd::Value, String> {
 
 pub fn or(value: &sd::Value, a: &Node, b: &Node) -> Result<sd::Value, String> {
     let left = match_any(a, value)?;
-    if !left.is_null() {
+    if is_truthy(&left) {
         Ok(left)
     } else {
         match_any(b, value)
@@ -221,7 +232,7 @@ pub fn or(value: &sd::Value, a: &Node, b: &Node) -> Result<sd::Value, String> {
 }
 
 pub fn not(value: &sd::Value, x: &Node) -> Result<sd::Value, String> {
-    Ok(sd::Value::Bool(match_any(x, value)?.is_null()))
+    Ok(sd::Value::Bool(!is_truthy(&match_any(x, value)?)))
 }
 
 pub fn cmp_bool(
