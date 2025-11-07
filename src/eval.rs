@@ -1,46 +1,30 @@
 use crate::matchs::match_any;
-use crate::nodes::{Node, Value};
+use crate::nodes::Node;
+use serde_json as sd;
+
 pub mod list {
     use super::*;
 
-    pub enum SortKind {
-        SortBy,
-        MinBy,
-        MaxBy,
-    }
-
-    #[derive(PartialEq, PartialOrd)]
-    struct SortKey(Option<f64>);
-
-    impl Eq for SortKey {}
-    impl Ord for SortKey {
-        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-            self.0
-                .partial_cmp(&other.0)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        }
-    }
-
-    pub fn index(list: &[Value], i: isize) -> Result<Value, String> {
+    pub fn index(list: &[sd::Value], i: isize) -> Result<sd::Value, String> {
         let len = list.len() as isize;
         let idx = if i < 0 { len + i } else { i };
         Ok(if idx < 0 || idx >= len {
-            Value::Null
+            sd::Value::Null
         } else {
             list[idx as usize].clone()
         })
     }
 
-    pub fn length(list: &[Value]) -> Result<Value, String> {
-        Ok(Value::Number(list.len() as f64))
+    pub fn length(list: &[sd::Value]) -> Result<sd::Value, String> {
+        Ok(sd::Value::Number(list.len().into()))
     }
 
     pub fn slice(
-        list: &[Value],
+        list: &[sd::Value],
         start: &Option<isize>,
         end: &Option<isize>,
         step: &Option<isize>,
-    ) -> Result<Value, String> {
+    ) -> Result<sd::Value, String> {
         let len = list.len() as isize;
         let step = step.unwrap_or(1);
         if step == 0 {
@@ -61,7 +45,7 @@ pub mod list {
             end.min(len)
         };
 
-        let result: Vec<Value> = if step > 0 {
+        let result: Vec<sd::Value> = if step > 0 {
             (start..end)
                 .step_by(step as usize)
                 .filter_map(|i| list.get(i as usize).cloned())
@@ -74,223 +58,96 @@ pub mod list {
                 .collect()
         };
 
-        Ok(Value::List(result))
+        Ok(sd::Value::Array(result))
     }
 
-    pub fn flatten(list: &[Value]) -> Result<Value, String> {
-        Ok(Value::List(list.iter().fold(Vec::new(), |mut acc, v| {
-            match v {
-                Value::List(inner) => acc.extend(inner.iter().cloned()),
-                other => acc.push(other.clone()),
-            }
-            acc
-        })))
+    pub fn flatten(list: &[sd::Value]) -> Result<sd::Value, String> {
+        Ok(sd::Value::Array(list.iter().fold(
+            Vec::new(),
+            |mut acc, v| {
+                match v {
+                    sd::Value::Array(inner) => acc.extend(inner.iter().cloned()),
+                    other => acc.push(other.clone()),
+                }
+                acc
+            },
+        )))
     }
 
-    pub fn filter(list: &[Value], cond: &Node) -> Result<Value, String> {
-        Ok(Value::List(
+    pub fn filter(list: &[sd::Value], cond: &Node) -> Result<sd::Value, String> {
+        Ok(sd::Value::Array(
             list.iter()
                 .filter_map(|v| match match_any(cond, v) {
-                    Ok(res) if res.is_truthy() => Some(v.clone()),
+                    Ok(res) if !res.is_null() => Some(v.clone()),
                     _ => None,
                 })
                 .collect(),
         ))
     }
 
-    pub fn map(list: &[Value], key: &Node) -> Result<Value, String> {
+    pub fn map(list: &[sd::Value], key: &Node) -> Result<sd::Value, String> {
         list.iter()
             .map(|v| match_any(key, v))
             .collect::<Result<Vec<_>, _>>()
-            .map(Value::List)
+            .map(sd::Value::Array)
     }
 
-    pub fn sort(list: &[Value]) -> Result<Value, String> {
-        let mut sorted = list.to_vec();
-        sorted.sort_by(|a, b| match (a, b) {
-            (Value::Number(x), Value::Number(y)) => {
-                x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal)
-            }
-            (Value::String(x), Value::String(y)) => x.cmp(y),
-            _ => std::cmp::Ordering::Equal,
-        });
-        Ok(Value::List(sorted))
+    pub fn reverse(list: &[sd::Value]) -> Result<sd::Value, String> {
+        Ok(sd::Value::Array(list.iter().rev().cloned().collect()))
     }
 
-    pub fn sort_like(list: &[Value], key: &Node, kind: SortKind) -> Result<Value, String> {
-        let mut pairs: Vec<_> = list
-            .iter()
-            .map(|v| {
-                let key_val = match_any(key, v).unwrap_or(Value::Null);
-                let (f, i, s) = (
-                    key_val.as_number(),
-                    key_val.as_number().map(|n| n as i64),
-                    key_val.as_string().map(|s| s.to_string()),
-                );
-                let has = if f.is_some() || i.is_some() || s.is_some() {
-                    0u8
-                } else {
-                    1
-                };
-                (has, SortKey(f), i, s, v.clone())
-            })
-            .collect();
-
-        match kind {
-            SortKind::SortBy => {
-                pairs.sort_by(|a, b| {
-                    (a.0, &a.1, a.2, a.3.as_deref()).cmp(&(b.0, &b.1, b.2, b.3.as_deref()))
-                });
-                Ok(Value::List(
-                    pairs.into_iter().map(|(_, _, _, _, v)| v).collect(),
-                ))
-            }
-            SortKind::MinBy => Ok(pairs
-                .iter()
-                .min_by(|a, b| {
-                    (a.0, &a.1, a.2, a.3.as_deref()).cmp(&(b.0, &b.1, b.2, b.3.as_deref()))
-                })
-                .map(|m| m.4.clone())
-                .unwrap_or(Value::Null)),
-            SortKind::MaxBy => Ok(pairs
-                .iter()
-                .max_by(|a, b| {
-                    (a.0, &a.1, a.2, a.3.as_deref()).cmp(&(b.0, &b.1, b.2, b.3.as_deref()))
-                })
-                .map(|m| m.4.clone())
-                .unwrap_or(Value::Null)),
-        }
-    }
-
-    pub fn sort_by(list: &[Value], key: &Node) -> Result<Value, String> {
-        sort_like(list, key, SortKind::SortBy)
-    }
-
-    pub fn min_by(list: &[Value], key: &Node) -> Result<Value, String> {
-        sort_like(list, key, SortKind::MinBy)
-    }
-
-    pub fn max_by(list: &[Value], key: &Node) -> Result<Value, String> {
-        sort_like(list, key, SortKind::MaxBy)
-    }
-
-    pub fn sum(list: &[Value]) -> Result<Value, String> {
-        if list.is_empty() {
-            return Ok(Value::Number(0.0));
-        }
-        list.iter()
-            .try_fold(0.0, |acc, v| {
-                v.as_number()
-                    .map(|n| acc + n)
-                    .ok_or_else(|| "not a number".to_string())
-            })
-            .map(Value::Number)
-            .or(Ok(Value::Null))
-    }
-
-    pub fn reverse(list: &[Value]) -> Result<Value, String> {
-        Ok(Value::List(list.iter().rev().cloned().collect()))
-    }
-
-    pub fn min_max(list: &[Value], is_max: bool) -> Result<Value, String> {
-        let mut iter = list.iter();
-        let first = iter.next().ok_or_else(|| "empty list".to_string())?;
-        let expect_num = first.is_number();
-        let expect_str = first.is_string();
-
-        if !expect_num && !expect_str {
-            return Ok(Value::Null);
-        }
-
-        iter.try_fold(first, |best, cur| {
-            if (expect_num && !cur.is_number()) || (expect_str && !cur.is_string()) {
-                return Err("type mismatch".to_string());
-            }
-            Ok(match (best, cur) {
-                (Value::Number(b), Value::Number(c)) => {
-                    if (is_max && c > b) || (!is_max && c < b) {
-                        cur
-                    } else {
-                        best
-                    }
-                }
-                (Value::String(b), Value::String(c)) => {
-                    if (is_max && c > b) || (!is_max && c < b) {
-                        cur
-                    } else {
-                        best
-                    }
-                }
-                _ => best,
-            })
-        })
-        .map(|v| v.clone())
-        .or(Ok(Value::Null))
-    }
-
-    pub fn join(list: &[Value], glue: &str) -> Result<Value, String> {
+    pub fn join(list: &[sd::Value], glue: &str) -> Result<sd::Value, String> {
         if list.iter().any(|v| !v.is_string()) {
-            return Ok(Value::Null);
+            return Ok(sd::Value::Null);
         }
-        Ok(Value::String(
+        Ok(sd::Value::String(
             list.iter()
-                .filter_map(|v| v.as_string())
+                .filter_map(|v| v.as_str())
                 .collect::<Vec<_>>()
                 .join(glue),
         ))
     }
 
-    pub fn avg(list: &[Value]) -> Result<Value, String> {
-        if list.is_empty() {
-            return Ok(Value::Null);
-        }
-        sum(list).and_then(|s| match s {
-            Value::Number(total) => Ok(Value::Number(total / list.len() as f64)),
-            _ => Ok(Value::Null),
-        })
-    }
-
-    pub fn contains(list: &[Value], search: &Value) -> Result<Value, String> {
-        Ok(Value::Bool(list.iter().any(|v| v.eq_strict(search))))
+    pub fn contains(list: &[sd::Value], search: &sd::Value) -> Result<sd::Value, String> {
+        Ok(sd::Value::Bool(list.iter().any(|v| v.eq(search))))
     }
 }
 
 pub mod structs {
     use super::*;
-    use std::collections::HashMap;
 
-    pub fn field(dict: &HashMap<String, Value>, name: &str) -> Result<Value, String> {
-        Ok(dict.get(name).cloned().unwrap_or(Value::Null))
+    pub fn field(dict: &sd::Map<String, sd::Value>, name: &str) -> Result<sd::Value, String> {
+        Ok(dict.get(name).cloned().unwrap_or(sd::Value::Null))
     }
 
-    pub fn keys(dict: &HashMap<String, Value>) -> Result<Value, String> {
-        Ok(Value::List(
-            dict.keys().map(|k| Value::String(k.clone())).collect(),
+    pub fn keys(dict: &sd::Map<String, sd::Value>) -> Result<sd::Value, String> {
+        Ok(sd::Value::Array(
+            dict.keys().map(|k| sd::Value::String(k.clone())).collect(),
         ))
     }
 
-    pub fn values(dict: &HashMap<String, Value>) -> Result<Value, String> {
-        Ok(Value::List(dict.values().cloned().collect()))
+    pub fn values(dict: &sd::Map<String, sd::Value>) -> Result<sd::Value, String> {
+        Ok(sd::Value::Array(dict.values().cloned().collect()))
     }
 }
 
 pub mod strs {
     use super::*;
 
-    pub fn length(string: &str) -> Result<Value, String> {
-        Ok(Value::Number(string.chars().count() as f64))
+    pub fn length(string: &str) -> Result<sd::Value, String> {
+        Ok(sd::Value::Number(string.chars().count().into()))
     }
 
-    pub fn contains(string: &str, search: &str) -> Result<Value, String> {
-        Ok(Value::Bool(string.contains(search)))
+    pub fn contains(string: &str, search: &str) -> Result<sd::Value, String> {
+        Ok(sd::Value::Bool(string.contains(search)))
     }
 
-    pub fn starts_with(string: &str, prefix: &str) -> Result<Value, String> {
-        Ok(Value::Bool(string.starts_with(prefix)))
+    pub fn starts_with(string: &str, prefix: &str) -> Result<sd::Value, String> {
+        Ok(sd::Value::Bool(string.starts_with(prefix)))
     }
 
-    pub fn ends_with(string: &str, suffix: &str) -> Result<Value, String> {
-        Ok(Value::Bool(string.ends_with(suffix)))
+    pub fn ends_with(string: &str, suffix: &str) -> Result<sd::Value, String> {
+        Ok(sd::Value::Bool(string.ends_with(suffix)))
     }
 
     pub fn slice(
@@ -298,7 +155,7 @@ pub mod strs {
         start: &Option<isize>,
         end: &Option<isize>,
         step: &Option<isize>,
-    ) -> Result<Value, String> {
+    ) -> Result<sd::Value, String> {
         let chars: Vec<char> = string.chars().collect();
         let len = chars.len() as isize;
         let step = step.unwrap_or(1);
@@ -333,96 +190,65 @@ pub mod strs {
                 .collect()
         };
 
-        Ok(Value::String(result))
+        Ok(sd::Value::String(result))
     }
 
-    pub fn reverse(string: &str) -> Result<Value, String> {
-        Ok(Value::String(string.chars().rev().collect()))
+    pub fn reverse(string: &str) -> Result<sd::Value, String> {
+        Ok(sd::Value::String(string.chars().rev().collect()))
     }
 }
 
-pub fn literal(value: &Value) -> Result<Value, String> {
+pub fn literal(value: &sd::Value) -> Result<sd::Value, String> {
     Ok(value.clone())
 }
 
-pub fn and(value: &Value, a: &Node, b: &Node) -> Result<Value, String> {
+pub fn and(value: &sd::Value, a: &Node, b: &Node) -> Result<sd::Value, String> {
     let left = match_any(a, value)?;
-    if left.is_truthy() {
+    if !left.is_null() {
         match_any(b, value)
     } else {
         Ok(left)
     }
 }
 
-pub fn or(value: &Value, a: &Node, b: &Node) -> Result<Value, String> {
+pub fn or(value: &sd::Value, a: &Node, b: &Node) -> Result<sd::Value, String> {
     let left = match_any(a, value)?;
-    if left.is_truthy() {
+    if !left.is_null() {
         Ok(left)
     } else {
         match_any(b, value)
     }
 }
 
-pub fn not(value: &Value, x: &Node) -> Result<Value, String> {
-    Ok(Value::Bool(!match_any(x, value)?.is_truthy()))
+pub fn not(value: &sd::Value, x: &Node) -> Result<sd::Value, String> {
+    Ok(sd::Value::Bool(match_any(x, value)?.is_null()))
 }
 
-pub fn cmp_bool(left: &Value, right: &Value, op: fn(f64, f64) -> bool) -> Result<Value, String> {
+pub fn cmp_bool(
+    left: &sd::Value,
+    right: &sd::Value,
+    op: fn(&sd::Number, &sd::Number) -> bool,
+) -> Result<sd::Value, String> {
     match (left.as_number(), right.as_number()) {
-        (Some(l), Some(r)) => Ok(Value::Bool(op(l, r))),
-        _ => Ok(Value::Bool(false)),
+        (Some(l), Some(r)) => Ok(sd::Value::Bool(op(&l, &r))),
+        _ => Ok(sd::Value::Bool(false)),
     }
 }
 
-pub fn abs(number: &Value) -> Result<Value, String> {
-    number
-        .as_number()
-        .map(|n| Value::Number(n.abs()))
-        .ok_or_else(|| "not a number".to_string())
-}
-
-pub fn ceil(number: &Value) -> Result<Value, String> {
-    number
-        .as_number()
-        .map(|n| Value::Number(n.ceil()))
-        .ok_or_else(|| "not a number".to_string())
-}
-
-pub fn floor(number: &Value) -> Result<Value, String> {
-    number
-        .as_number()
-        .map(|n| Value::Number(n.floor()))
-        .ok_or_else(|| "not a number".to_string())
-}
-
-pub fn merge(value: &Value, items: &[Node]) -> Result<Value, String> {
-    use std::collections::HashMap;
-    let mut output = HashMap::new();
-
-    for item in items {
-        match match_any(item, value)? {
-            Value::Dict(dict) => output.extend(dict),
-            _ => return Ok(Value::Null),
-        }
-    }
-
-    Ok(Value::Dict(output))
-}
-
-pub fn coalesce(value: &Value, items: &[Node]) -> Result<Value, String> {
+pub fn coalesce(value: &sd::Value, items: &[Node]) -> Result<sd::Value, String> {
     items
         .iter()
         .find_map(|item| match match_any(item, value) {
             Ok(v) if !v.is_null() => Some(Ok(v)),
             _ => None,
         })
-        .unwrap_or(Ok(Value::Null))
+        .unwrap_or(Ok(sd::Value::Null))
 }
 
-pub fn eq(left: &Value, right: &Value) -> Result<Value, String> {
-    Ok(Value::Bool(left.eq_strict(right)))
+pub fn eq(left: &sd::Value, right: &sd::Value) -> Result<sd::Value, String> {
+    Ok(sd::Value::Bool(left.eq(right)))
 }
 
-pub fn ne(left: &Value, right: &Value) -> Result<Value, String> {
-    Ok(Value::Bool(!left.eq_strict(right)))
+pub fn ne(left: &sd::Value, right: &sd::Value) -> Result<sd::Value, String> {
+    Ok(sd::Value::Bool(!left.eq(right)))
 }

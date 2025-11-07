@@ -119,23 +119,6 @@ def build_cases() -> list[Case]:
             users.list.map(dx.field("name")).list.map(dx.element().str.length()),
             "map(&length(@), users[*].name)",
         )
-        .add(users.list.min_by(dx.field("age")), "min_by(users, &age)")
-        .add(
-            users.list.sort_by(dx.field("age")).list.map(dx.field("name")),
-            "sort_by(users, &age)[*].name",
-        )
-        .add(
-            users.list.filter(
-                dx.struct()
-                .field("age")
-                .gt(40)
-                .and_(dx.field("active").eq(True))
-                .and_(dx.field("category").list.contains("VIP"))
-            )
-            .list.map(dx.field("name"))
-            .list.sort(),
-            'sort(users[?((age > `40` && active == `true`) && contains(category, `"VIP"`))].name)',
-        )
         .add(
             users.list.map(dx.field("category")).list.flatten(),
             "users[*].category[]",
@@ -148,34 +131,10 @@ def build_cases() -> list[Case]:
             users.list.map(dx.field("nested_scores")).list.flatten().list.flatten(),
             "users[*].nested_scores[][]",
         )
-        .add(users.list.max_by(dx.field("age")), "max_by(users, &age)")
-        .add(
-            users.list.map(dx.field("nested_scores"))
-            .list.flatten()
-            .list.flatten()
-            .list.sort(),
-            "sort(users[*].nested_scores[][])",
-        )
-        .add(
-            users.list.map(dx.field("age").abs()),
-            "map(&abs(@), users[*].age)",
-        )
-        .add(users.list.map(dx.field("age")).list.avg(), "avg(users[*].age)")
-        .add(
-            users.list.map(dx.field("age").ceil()),
-            "map(&ceil(@), users[*].age)",
-        )
-        .add(
-            users.list.map(dx.field("age").floor()),
-            "map(&floor(@), users[*].age)",
-        )
-        .add(users.list.map(dx.field("age")).list.max(), "max(users[*].age)")
-        .add(users.list.map(dx.field("age")).list.min(), "min(users[*].age)")
         .add(
             users.list.map(dx.field("age")).list.reverse(),
             "reverse(users[*].age)",
         )
-        .add(users.list.map(dx.field("age")).list.sum(), "sum(users[*].age)")
         .add(
             users.list.map(dx.field("address").struct.field("city")),
             "users[*].address.city",
@@ -198,28 +157,8 @@ def build_cases() -> list[Case]:
             "users[*] | map(&(age > `1` && !(age == `5`) || age == `0`), @)",
         )
         .add(
-            users.list.map(dx.struct().keys()).list.flatten().list.sort(),
-            "sort(users[*].keys(@)[])",
-        )
-        .add(
-            users.list.map(dx.field("address").struct.values())
-            .list.flatten()
-            .list.sort(),
-            "sort(users[*].address.values(@)[])",
-        )
-        .add(
             users.list.map(dx.field("nested_scores").list.flatten().list.contains(50)),
             "users[*].contains(nested_scores[], `50`)",
-        )
-        .add(
-            dx.field("sales")
-            .list.flatten()
-            .list.map(dx.struct().keys().list.sort().list.join(", ")),
-            """sales[][] | map(&join(`, `, sort(keys(@))), @)""",
-        )
-        .add(
-            users.list.map(dx.merge(dx.element(), dx.lit({"extra_field": 1}))),
-            'users[*].merge(@, `{"extra_field":1}`)',
         )
         .add(
             users.list.map(dx.field("name").str.ends_with("s")),
@@ -232,10 +171,6 @@ def build_cases() -> list[Case]:
         .add(
             users.list.map(dx.coalesce(dx.field("MISSING"), dx.field("name"))),
             "users[*].not_null(MISSING, name)",
-        )
-        .add(
-            users.list.map(dx.field("age")).list.sum().abs(),
-            "abs(sum(users[*].age))",
         )
         .get()
     )

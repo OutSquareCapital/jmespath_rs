@@ -1,13 +1,12 @@
 use crate::nodes;
-
 use pyo3::prelude::*;
+use pythonize::depythonize;
 use std::marker::PhantomData;
-
 fn into_lit(_py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<nodes::Node> {
     if let Ok(expr) = obj.extract::<PyRef<Expr>>() {
         return Ok(expr.node.clone());
     }
-    Ok(nodes::Node::Literal(nodes::Value::from_python(obj)?))
+    Ok(nodes::Node::Literal(depythonize(obj)?))
 }
 
 type OpWrapper<Op> = NameSpaceBuilder<Op, fn(Box<nodes::Node>, Op) -> nodes::Node>;
@@ -142,24 +141,6 @@ impl Expr {
             node: nodes::Node::Not(self.node.clone().into()),
         }
     }
-
-    pub fn abs(&self) -> Self {
-        Self {
-            node: nodes::Node::Scalar(self.node.clone().into(), nodes::ScalarOp::Abs),
-        }
-    }
-
-    pub fn ceil(&self) -> Self {
-        Self {
-            node: nodes::Node::Scalar(self.node.clone().into(), nodes::ScalarOp::Ceil),
-        }
-    }
-
-    pub fn floor(&self) -> Self {
-        Self {
-            node: nodes::Node::Scalar(self.node.clone().into(), nodes::ScalarOp::Floor),
-        }
-    }
 }
 #[pyclass(module = "dictexprs", name = "ExprStructNameSpace")]
 pub struct ExprStructNameSpace {
@@ -237,26 +218,6 @@ impl ExprListNameSpace {
     pub fn reverse(&self) -> Expr {
         self.builder.wrap(nodes::ListOp::Reverse)
     }
-    pub fn sort(&self) -> Expr {
-        self.builder.wrap(nodes::ListOp::Sort)
-    }
-
-    pub fn sum(&self) -> Expr {
-        self.builder.wrap(nodes::ListOp::Sum)
-    }
-
-    pub fn min(&self) -> Expr {
-        self.builder.wrap(nodes::ListOp::Min)
-    }
-
-    pub fn max(&self) -> Expr {
-        self.builder.wrap(nodes::ListOp::Max)
-    }
-
-    pub fn avg(&self) -> Expr {
-        self.builder.wrap(nodes::ListOp::Avg)
-    }
-
     pub fn length(&self) -> Expr {
         self.builder.wrap(nodes::ListOp::Length)
     }
@@ -278,20 +239,6 @@ impl ExprListNameSpace {
     pub fn filter(&self, cond: &Expr) -> Expr {
         self.builder
             .wrap(nodes::ListOp::Filter(cond.node.clone().into()))
-    }
-    pub fn sort_by(&self, key: &Expr) -> Expr {
-        self.builder
-            .wrap(nodes::ListOp::SortBy(key.node.clone().into()))
-    }
-
-    pub fn min_by(&self, key: &Expr) -> Expr {
-        self.builder
-            .wrap(nodes::ListOp::MinBy(key.node.clone().into()))
-    }
-
-    pub fn max_by(&self, key: &Expr) -> Expr {
-        self.builder
-            .wrap(nodes::ListOp::MaxBy(key.node.clone().into()))
     }
 }
 pub mod entryfuncs {
@@ -318,14 +265,6 @@ pub mod entryfuncs {
 
     #[pyfunction]
     #[pyo3(signature = (*args))]
-    pub fn merge(args: Vec<Expr>) -> Expr {
-        Expr {
-            node: nodes::Node::Merge(args.into_iter().map(|q| q.node).collect()),
-        }
-    }
-
-    #[pyfunction]
-    #[pyo3(signature = (*args))]
     pub fn coalesce(args: Vec<Expr>) -> Expr {
         Expr {
             node: nodes::Node::Coalesce(args.into_iter().map(|q| q.node).collect()),
@@ -334,7 +273,7 @@ pub mod entryfuncs {
     #[pyfunction]
     pub fn lit(value: &Bound<'_, PyAny>) -> PyResult<Expr> {
         Ok(Expr {
-            node: nodes::Node::Literal(nodes::Value::from_python(value)?),
+            node: nodes::Node::Literal(depythonize(value)?),
         })
     }
 }

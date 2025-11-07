@@ -14,7 +14,6 @@ fn dictexprs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<hld::LazyQuery>()?;
     m.add_function(wrap_pyfunction!(qry::entryfuncs::lit, m)?)?;
     m.add_function(wrap_pyfunction!(qry::entryfuncs::element, m)?)?;
-    m.add_function(wrap_pyfunction!(qry::entryfuncs::merge, m)?)?;
     m.add_function(wrap_pyfunction!(qry::entryfuncs::coalesce, m)?)?;
     m.add_function(wrap_pyfunction!(qry::entryfuncs::struct_, m)?)?;
     m.add_function(wrap_pyfunction!(qry::entryfuncs::list, m)?)?;
