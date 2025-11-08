@@ -7,7 +7,6 @@ pub(crate) enum Node {
     And(Box<Node>, Box<Node>),
     Or(Box<Node>, Box<Node>),
     Not(Box<Node>),
-    Coalesce(Vec<Node>),
     List(Box<Node>, ListOp),
     Str(Box<Node>, StrOp),
     Struct(Box<Node>, StructOp),
@@ -46,8 +45,4 @@ pub(crate) enum StructOp {
 pub(crate) enum ComparisonOp {
     Eq(Box<Node>),
     Ne(Box<Node>),
-    Lt(Box<Node>),
-    Le(Box<Node>),
-    Gt(Box<Node>),
-    Ge(Box<Node>),
 }

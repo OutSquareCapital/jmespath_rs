@@ -108,12 +108,6 @@ def build_cases() -> list[Case]:
             "users[*].address",
         )
         .add(dx.field("users").list.length(), "users | length(@)")
-        .add(
-            users.list.filter(
-                dx.field("age").ge(30).and_(dx.field("active").eq(True))
-            ).list.map(dx.field("name")),
-            "users[?(age >= `30` && active == `true`)].name",
-        )
         .add(users.list.length(), "length(users)")
         .add(
             users.list.map(dx.field("name")).list.map(dx.element().str.length()),
@@ -148,15 +142,6 @@ def build_cases() -> list[Case]:
             "users[*].age == `30`",
         )
         .add(
-            users.list.map(
-                dx.field("age")
-                .gt(1)
-                .and_(dx.field("age").eq(5).not_())
-                .or_(dx.field("age").eq(0))
-            ),
-            "users[*] | map(&(age > `1` && !(age == `5`) || age == `0`), @)",
-        )
-        .add(
             users.list.map(dx.field("nested_scores").list.flatten().list.contains(50)),
             "users[*].contains(nested_scores[], `50`)",
         )
@@ -167,10 +152,6 @@ def build_cases() -> list[Case]:
         .add(
             users.list.map(dx.field("name").str.starts_with("A")),
             'users[*].starts_with(name, `"A"`)',
-        )
-        .add(
-            users.list.map(dx.coalesce(dx.field("MISSING"), dx.field("name"))),
-            "users[*].not_null(MISSING, name)",
         )
         .get()
     )

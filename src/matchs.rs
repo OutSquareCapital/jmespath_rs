@@ -23,7 +23,6 @@ pub fn match_any(node: &Node, value: &sd::Value) -> sd::Value {
             }
         }
         Node::Not(x) => sd::Value::Bool(!eval::is_truthy(&match_any(x, value))),
-        Node::Coalesce(items) => eval::coalesce(items, value).unwrap_or(sd::Value::Null),
         Node::List(base, op) => op.eval(&match_any(base, value), value),
         Node::Str(base, op) => op.eval(&match_any(base, value)),
         Node::Struct(base, op) => op.eval(&match_any(base, value)),
@@ -95,26 +94,6 @@ impl ComparisonOp {
             Self::Ne(other_node) => {
                 sd::Value::Bool(!base_evaluated.eq(&match_any(other_node, value)))
             }
-            Self::Lt(other_node) => sd::Value::Bool(eval::cmp_bool(
-                base_evaluated,
-                &match_any(other_node, value),
-                |l, r| l < r,
-            )),
-            Self::Le(other_node) => sd::Value::Bool(eval::cmp_bool(
-                base_evaluated,
-                &match_any(other_node, value),
-                |l, r| l <= r,
-            )),
-            Self::Gt(other_node) => sd::Value::Bool(eval::cmp_bool(
-                base_evaluated,
-                &match_any(other_node, value),
-                |l, r| l > r,
-            )),
-            Self::Ge(other_node) => sd::Value::Bool(eval::cmp_bool(
-                base_evaluated,
-                &match_any(other_node, value),
-                |l, r| l >= r,
-            )),
         }
     }
 }

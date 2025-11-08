@@ -89,41 +89,6 @@ impl Expr {
         })
     }
 
-    pub fn lt(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            node: nodes::Node::Compare(
-                self.node.clone().into(),
-                nodes::ComparisonOp::Lt(into_lit(py, other)?.into()),
-            ),
-        })
-    }
-
-    pub fn le(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            node: nodes::Node::Compare(
-                self.node.clone().into(),
-                nodes::ComparisonOp::Le(into_lit(py, other)?.into()),
-            ),
-        })
-    }
-
-    pub fn gt(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            node: nodes::Node::Compare(
-                self.node.clone().into(),
-                nodes::ComparisonOp::Gt(into_lit(py, other)?.into()),
-            ),
-        })
-    }
-
-    pub fn ge(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            node: nodes::Node::Compare(
-                self.node.clone().into(),
-                nodes::ComparisonOp::Ge(into_lit(py, other)?.into()),
-            ),
-        })
-    }
     pub fn and_(&self, other: &Expr) -> Self {
         Self {
             node: nodes::Node::And(self.node.clone().into(), other.node.clone().into()),
@@ -254,13 +219,6 @@ pub mod entryfuncs {
         Expr::new().list()
     }
 
-    #[pyfunction]
-    #[pyo3(signature = (*args))]
-    pub fn coalesce(args: Vec<Expr>) -> Expr {
-        Expr {
-            node: nodes::Node::Coalesce(args.into_iter().map(|q| q.node).collect()),
-        }
-    }
     #[pyfunction]
     pub fn lit(value: &Bound<'_, PyAny>) -> PyResult<Expr> {
         Ok(Expr {

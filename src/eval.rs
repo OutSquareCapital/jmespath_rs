@@ -1,4 +1,3 @@
-use crate::{matchs::match_any, nodes::Node};
 use serde_json as sd;
 
 #[inline]
@@ -23,22 +22,4 @@ pub fn flatten<'a>(list: &'a [sd::Value]) -> Vec<&'a sd::Value> {
         }
     }
     refs
-}
-
-#[inline]
-pub fn cmp_bool(left: &sd::Value, right: &sd::Value, op: fn(f64, f64) -> bool) -> bool {
-    let l = left.as_f64().unwrap();
-    let r = right.as_f64().unwrap();
-    op(l, r)
-}
-
-#[inline]
-pub fn coalesce(items: &[Node], value: &sd::Value) -> Option<sd::Value> {
-    for item in items {
-        let result = match_any(item, value);
-        if !result.is_null() {
-            return Some(result);
-        }
-    }
-    None
 }
