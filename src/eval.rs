@@ -13,102 +13,16 @@ pub fn is_truthy(value: &sd::Value) -> bool {
     }
 }
 
-pub mod list {
-    use super::*;
-
-    #[inline]
-    pub fn slice<'a>(
-        list: &'a [sd::Value],
-        start: &Option<isize>,
-        end: &Option<isize>,
-        step: &Option<isize>,
-    ) -> Vec<&'a sd::Value> {
-        let len = list.len() as isize;
-        let step = step.unwrap_or(1);
-
-        let start = start.unwrap_or(if step > 0 { 0 } else { len - 1 });
-        let end = end.unwrap_or(if step > 0 { len } else { -len - 1 });
-
-        let start = if start < 0 {
-            (len + start).max(0)
-        } else {
-            start.min(len)
-        };
-        let end = if end < 0 {
-            (len + end).max(-1)
-        } else {
-            end.min(len)
-        };
-
-        let result: Vec<&sd::Value> = if step > 0 {
-            (start..end)
-                .step_by(step as usize)
-                .map(|i| &list[i as usize])
-                .collect()
-        } else {
-            (end + 1..=start)
-                .rev()
-                .step_by((-step) as usize)
-                .map(|i| &list[i as usize])
-                .collect()
-        };
-
-        result
-    }
-
-    #[inline]
-    pub fn flatten<'a>(list: &'a [sd::Value]) -> Vec<&'a sd::Value> {
-        let mut refs = Vec::new();
-        for v in list {
-            match v {
-                sd::Value::Array(inner) => refs.extend(inner.iter()),
-                other => refs.push(other),
-            }
-        }
-        refs
-    }
-}
-
-pub mod strs {
-
-    #[inline]
-    pub fn slice(
-        string: &str,
-        start: &Option<isize>,
-        end: &Option<isize>,
-        step: &Option<isize>,
-    ) -> String {
-        let chars: Vec<char> = string.chars().collect();
-        let len = chars.len() as isize;
-        let step = step.unwrap_or(1);
-
-        let start = start.unwrap_or(if step > 0 { 0 } else { len - 1 });
-        let end = end.unwrap_or(if step > 0 { len } else { -len - 1 });
-
-        let start = if start < 0 {
-            (len + start).max(0)
-        } else {
-            start.min(len)
-        };
-        let end = if end < 0 {
-            (len + end).max(-1)
-        } else {
-            end.min(len)
-        };
-
-        if step > 0 {
-            (start..end)
-                .step_by(step as usize)
-                .map(|i| chars[i as usize])
-                .collect()
-        } else {
-            (end + 1..=start)
-                .rev()
-                .step_by((-step) as usize)
-                .map(|i| chars[i as usize])
-                .collect()
+#[inline]
+pub fn flatten<'a>(list: &'a [sd::Value]) -> Vec<&'a sd::Value> {
+    let mut refs = Vec::new();
+    for v in list {
+        match v {
+            sd::Value::Array(inner) => refs.extend(inner.iter()),
+            other => refs.push(other),
         }
     }
+    refs
 }
 
 #[inline]

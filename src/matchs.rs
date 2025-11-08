@@ -37,16 +37,8 @@ impl ListOp {
         match self {
             Self::Length => sd::Value::Number(list.len().into()),
             Self::Index(i) => list[*i as usize].clone(),
-            Self::Slice { start, end, step } => sd::Value::Array(
-                eval::list::slice(list, start, end, step)
-                    .into_iter()
-                    .cloned()
-                    .collect(),
-            ),
             Self::Reverse => sd::Value::Array(list.iter().rev().cloned().collect()),
-            Self::Flatten => {
-                sd::Value::Array(eval::list::flatten(list).into_iter().cloned().collect())
-            }
+            Self::Flatten => sd::Value::Array(eval::flatten(list).into_iter().cloned().collect()),
             Self::Contains(search_node) => {
                 let search = match_any(search_node, context);
                 sd::Value::Bool(list.contains(&search))
@@ -74,9 +66,6 @@ impl StrOp {
     pub fn eval(&self, value: &sd::Value) -> sd::Value {
         let string = value.as_str().unwrap();
         match self {
-            Self::Slice { start, end, step } => {
-                sd::Value::String(eval::strs::slice(string, start, end, step))
-            }
             Self::Reverse => sd::Value::String(string.chars().rev().collect()),
             Self::Contains(search) => sd::Value::Bool(string.contains(search)),
             Self::StartsWith(prefix) => sd::Value::Bool(string.starts_with(prefix)),

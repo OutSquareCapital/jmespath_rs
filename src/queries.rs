@@ -186,10 +186,6 @@ impl ExprStrNameSpace {
         self.builder.wrap(nodes::StrOp::EndsWith(other.to_string()))
     }
 
-    #[pyo3(signature = (start=None, end=None, step=None))]
-    pub fn slice(&self, start: Option<isize>, end: Option<isize>, step: Option<isize>) -> Expr {
-        self.builder.wrap(nodes::StrOp::Slice { start, end, step })
-    }
     pub fn length(&self) -> Expr {
         self.builder.wrap(nodes::StrOp::Length)
     }
@@ -204,11 +200,6 @@ pub struct ExprListNameSpace {
 impl ExprListNameSpace {
     pub fn get(&self, i: isize) -> Expr {
         self.builder.wrap(nodes::ListOp::Index(i))
-    }
-
-    #[pyo3(signature = (start=None, end=None, step=None))]
-    pub fn slice(&self, start: Option<isize>, end: Option<isize>, step: Option<isize>) -> Expr {
-        self.builder.wrap(nodes::ListOp::Slice { start, end, step })
     }
 
     pub fn flatten(&self) -> Expr {

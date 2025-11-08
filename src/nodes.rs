@@ -17,11 +17,6 @@ pub(crate) enum Node {
 #[derive(Debug, Clone)]
 pub(crate) enum ListOp {
     Index(isize),
-    Slice {
-        start: Option<isize>,
-        end: Option<isize>,
-        step: Option<isize>,
-    },
     Length,
     Reverse,
     Flatten,
@@ -33,11 +28,6 @@ pub(crate) enum ListOp {
 
 #[derive(Debug, Clone)]
 pub(crate) enum StrOp {
-    Slice {
-        start: Option<isize>,
-        end: Option<isize>,
-        step: Option<isize>,
-    },
     Reverse,
     Contains(String),
     StartsWith(String),
