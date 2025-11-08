@@ -17,18 +17,6 @@ pub mod list {
     use super::*;
 
     #[inline]
-    pub fn index<'a>(list: &'a [sd::Value], i: isize) -> &'a sd::Value {
-        let len = list.len() as isize;
-        let idx = if i < 0 { len + i } else { i };
-        &list[idx as usize]
-    }
-
-    #[inline]
-    pub fn length(list: &[sd::Value]) -> usize {
-        list.len()
-    }
-
-    #[inline]
     pub fn slice<'a>(
         list: &'a [sd::Value],
         start: &Option<isize>,
@@ -89,77 +77,15 @@ pub mod list {
     }
 
     #[inline]
-    pub fn reverse<'a>(list: &'a [sd::Value]) -> Vec<&'a sd::Value> {
-        list.iter().rev().collect()
-    }
-
-    #[inline]
     pub fn map<F>(list: &[sd::Value], transform: F) -> Vec<sd::Value>
     where
         F: Fn(&sd::Value) -> sd::Value,
     {
         list.iter().map(transform).collect()
     }
-
-    #[inline]
-    pub fn join(list: &[sd::Value], glue: &str) -> String {
-        list.iter()
-            .map(|v| v.as_str().unwrap())
-            .collect::<Vec<_>>()
-            .join(glue)
-    }
-
-    #[inline]
-    pub fn contains(list: &[sd::Value], search: &sd::Value) -> bool {
-        list.contains(search)
-    }
-}
-
-pub mod structs {
-    use super::*;
-
-    #[inline]
-    pub fn field<'a>(dict: &'a sd::Map<String, sd::Value>, name: &str) -> &'a sd::Value {
-        &dict[name]
-    }
-
-    #[inline]
-    pub fn keys(dict: &sd::Map<String, sd::Value>) -> Vec<String> {
-        dict.keys().cloned().collect()
-    }
-
-    #[inline]
-    pub fn values<'a>(dict: &'a sd::Map<String, sd::Value>) -> Vec<&'a sd::Value> {
-        dict.values().collect()
-    }
 }
 
 pub mod strs {
-
-    #[inline]
-    pub fn length(string: &str) -> usize {
-        string.chars().count()
-    }
-
-    #[inline]
-    pub fn contains(string: &str, search: &str) -> bool {
-        string.contains(search)
-    }
-
-    #[inline]
-    pub fn starts_with(string: &str, prefix: &str) -> bool {
-        string.starts_with(prefix)
-    }
-
-    #[inline]
-    pub fn ends_with(string: &str, suffix: &str) -> bool {
-        string.ends_with(suffix)
-    }
-
-    #[inline]
-    pub fn reverse(string: &str) -> String {
-        string.chars().rev().collect()
-    }
 
     #[inline]
     pub fn slice(
@@ -199,21 +125,6 @@ pub mod strs {
                 .collect()
         }
     }
-}
-
-#[inline]
-pub fn literal<'a>(value: &'a sd::Value) -> &'a sd::Value {
-    value
-}
-
-#[inline]
-pub fn eq(left: &sd::Value, right: &sd::Value) -> bool {
-    left == right
-}
-
-#[inline]
-pub fn ne(left: &sd::Value, right: &sd::Value) -> bool {
-    left != right
 }
 
 #[inline]

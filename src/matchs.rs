@@ -5,7 +5,7 @@ use serde_json as sd;
 pub fn match_any(node: &Node, value: &sd::Value) -> sd::Value {
     match node {
         Node::This => value.clone(),
-        Node::Literal(obj) => eval::literal(obj).clone(),
+        Node::Literal(obj) => obj.clone(),
         Node::And(a, b) => {
             let left = match_any(a, value);
             if eval::is_truthy(&left) {
@@ -35,25 +35,28 @@ impl ListOp {
     pub fn eval(&self, value: &sd::Value, context: &sd::Value) -> sd::Value {
         let list = value.as_array().unwrap();
         match self {
-            Self::Length => sd::Value::Number(eval::list::length(list).into()),
-            Self::Index(i) => eval::list::index(list, *i).clone(),
+            Self::Length => sd::Value::Number(list.len().into()),
+            Self::Index(i) => list[*i as usize].clone(),
             Self::Slice { start, end, step } => sd::Value::Array(
                 eval::list::slice(list, start, end, step)
                     .into_iter()
                     .cloned()
                     .collect(),
             ),
-            Self::Reverse => {
-                sd::Value::Array(eval::list::reverse(list).into_iter().cloned().collect())
-            }
+            Self::Reverse => sd::Value::Array(list.iter().rev().cloned().collect()),
             Self::Flatten => {
                 sd::Value::Array(eval::list::flatten(list).into_iter().cloned().collect())
             }
             Self::Contains(search_node) => {
                 let search = match_any(search_node, context);
-                sd::Value::Bool(eval::list::contains(list, &search))
+                sd::Value::Bool(list.contains(&search))
             }
-            Self::Join(glue) => sd::Value::String(eval::list::join(list, glue)),
+            Self::Join(glue) => sd::Value::String(
+                list.iter()
+                    .map(|v| v.as_str().unwrap())
+                    .collect::<Vec<_>>()
+                    .join(glue),
+            ),
             Self::Filter(cond) => {
                 let filtered =
                     eval::list::filter(list, |item| eval::is_truthy(&match_any(cond, item)));
@@ -74,11 +77,11 @@ impl StrOp {
             Self::Slice { start, end, step } => {
                 sd::Value::String(eval::strs::slice(string, start, end, step))
             }
-            Self::Reverse => sd::Value::String(eval::strs::reverse(string)),
-            Self::Contains(search) => sd::Value::Bool(eval::strs::contains(string, search)),
-            Self::StartsWith(prefix) => sd::Value::Bool(eval::strs::starts_with(string, prefix)),
-            Self::EndsWith(suffix) => sd::Value::Bool(eval::strs::ends_with(string, suffix)),
-            Self::Length => sd::Value::Number(eval::strs::length(string).into()),
+            Self::Reverse => sd::Value::String(string.chars().rev().collect()),
+            Self::Contains(search) => sd::Value::Bool(string.contains(search)),
+            Self::StartsWith(prefix) => sd::Value::Bool(string.starts_with(prefix)),
+            Self::EndsWith(suffix) => sd::Value::Bool(string.ends_with(suffix)),
+            Self::Length => sd::Value::Number(string.chars().count().into()),
         }
     }
 }
@@ -87,15 +90,9 @@ impl StructOp {
     pub fn eval(&self, value: &sd::Value) -> sd::Value {
         let dict = value.as_object().unwrap();
         match self {
-            Self::Field(name) => eval::structs::field(dict, name).clone(),
-            Self::Keys => {
-                let keys = eval::structs::keys(dict);
-                sd::Value::Array(keys.into_iter().map(sd::Value::String).collect())
-            }
-            Self::Values => {
-                let values = eval::structs::values(dict);
-                sd::Value::Array(values.into_iter().cloned().collect())
-            }
+            Self::Field(name) => dict.get(name).cloned().unwrap_or(sd::Value::Null),
+            Self::Keys => sd::Value::Array(dict.keys().cloned().map(sd::Value::String).collect()),
+            Self::Values => sd::Value::Array(dict.values().cloned().collect()),
         }
     }
 }
@@ -104,10 +101,10 @@ impl ComparisonOp {
     pub fn eval(&self, value: &sd::Value, base_evaluated: &sd::Value) -> sd::Value {
         match self {
             Self::Eq(other_node) => {
-                sd::Value::Bool(eval::eq(base_evaluated, &match_any(other_node, value)))
+                sd::Value::Bool(base_evaluated.eq(&match_any(other_node, value)))
             }
             Self::Ne(other_node) => {
-                sd::Value::Bool(eval::ne(base_evaluated, &match_any(other_node, value)))
+                sd::Value::Bool(!base_evaluated.eq(&match_any(other_node, value)))
             }
             Self::Lt(other_node) => sd::Value::Bool(eval::cmp_bool(
                 base_evaluated,
