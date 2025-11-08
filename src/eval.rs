@@ -37,7 +37,6 @@ pub mod list {
     ) -> Vec<&'a sd::Value> {
         let len = list.len() as isize;
         let step = step.unwrap_or(1);
-        assert!(step != 0, "slice step cannot be zero");
 
         let start = start.unwrap_or(if step > 0 { 0 } else { len - 1 });
         let end = end.unwrap_or(if step > 0 { len } else { -len - 1 });
@@ -172,7 +171,6 @@ pub mod strs {
         let chars: Vec<char> = string.chars().collect();
         let len = chars.len() as isize;
         let step = step.unwrap_or(1);
-        assert!(step != 0, "slice step cannot be zero");
 
         let start = start.unwrap_or(if step > 0 { 0 } else { len - 1 });
         let end = end.unwrap_or(if step > 0 { len } else { -len - 1 });

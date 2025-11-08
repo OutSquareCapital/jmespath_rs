@@ -16,12 +16,13 @@ pub struct LazyQuery {
 #[pymethods]
 impl LazyQuery {
     pub fn collect(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let v = match_any(&self.node, &self.data);
-        Ok(pythonize(py, &v).unwrap().into_any().unbind())
+        Ok(pythonize(py, &match_any(&self.node, &self.data))
+            .unwrap()
+            .into_any()
+            .unbind())
     }
     pub fn to_bytes(&self) -> PyResult<Vec<u8>> {
-        let v = match_any(&self.node, &self.data);
-        Ok(sd::to_vec(&v).unwrap())
+        Ok(sd::to_vec(&match_any(&self.node, &self.data)).unwrap())
     }
 }
 
