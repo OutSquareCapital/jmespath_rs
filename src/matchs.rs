@@ -57,14 +57,14 @@ impl ListOp {
                     .collect::<Vec<_>>()
                     .join(glue),
             ),
-            Self::Filter(cond) => {
-                let filtered =
-                    eval::list::filter(list, |item| eval::is_truthy(&match_any(cond, item)));
-                sd::Value::Array(filtered.into_iter().cloned().collect())
-            }
+            Self::Filter(cond) => sd::Value::Array(
+                list.iter()
+                    .filter(|item| eval::is_truthy(&match_any(cond, item)))
+                    .cloned()
+                    .collect(),
+            ),
             Self::Map(key) => {
-                let mapped = eval::list::map(list, |item| match_any(key, item));
-                sd::Value::Array(mapped)
+                sd::Value::Array(list.iter().map(|item| match_any(key, item)).collect())
             }
         }
     }

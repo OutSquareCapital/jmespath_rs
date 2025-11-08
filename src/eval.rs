@@ -67,22 +67,6 @@ pub mod list {
         }
         refs
     }
-
-    #[inline]
-    pub fn filter<'a, F>(list: &'a [sd::Value], predicate: F) -> Vec<&'a sd::Value>
-    where
-        F: Fn(&sd::Value) -> bool,
-    {
-        list.iter().filter(|v| predicate(v)).collect()
-    }
-
-    #[inline]
-    pub fn map<F>(list: &[sd::Value], transform: F) -> Vec<sd::Value>
-    where
-        F: Fn(&sd::Value) -> sd::Value,
-    {
-        list.iter().map(transform).collect()
-    }
 }
 
 pub mod strs {
